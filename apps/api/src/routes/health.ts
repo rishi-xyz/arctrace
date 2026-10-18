@@ -3,9 +3,33 @@ import type { ReadyResponse } from '@arctrace/shared';
 import { pingDb } from '../db/index.js';
 import { ensureBucket } from '../lib/s3.js';
 import { ledgerStatus } from '../lib/status.js';
+import { createPublicClient, formatEther, http } from 'viem';
+import { tiramisu } from '@arkiv-network/sdk/chains';
 import type { Ctx } from '../types.js';
 
 export async function healthRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
+  /** Public demo funding status. The writer address and balance are public chain data. */
+  app.get('/public/status', async () => {
+    const status = await ledgerStatus(ctx.config);
+    const address = status.writers[0] ?? null;
+    let balance: string | null = null;
+    if (address && status.mode === 'arkiv') {
+      try {
+        const client = createPublicClient({ chain: tiramisu, transport: http(ctx.config.arkivRpcUrl) });
+        balance = formatEther(await client.getBalance({ address: address as `0x${string}` }));
+      } catch {
+        balance = null;
+      }
+    }
+    return {
+      ledgerMode: status.mode,
+      ledgerOnline: status.ok,
+      writerAddress: address,
+      glmBalance: balance,
+      explorerUrl: status.explorerUrl,
+    };
+  });
+
   /** Liveness — no dependencies (spec §6). */
   app.get('/healthz', async () => ({ status: 'ok', at: new Date().toISOString() }));
 

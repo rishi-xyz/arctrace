@@ -1,5 +1,5 @@
 import { loadConfig, loadDotEnv } from 'arctrace-api/config';
-import { createDb, runMigrations } from 'arctrace-api/db';
+import { createDb } from 'arctrace-api/db';
 import { initLedger } from 'arctrace-api/ledger';
 import { claimNextTrace, processTrace } from './trace.js';
 import { drainOutboxOnce } from './outbox.js';
@@ -11,9 +11,8 @@ async function main() {
   loadDotEnv();
   const config = loadConfig();
   const db = createDb(config.databaseUrl);
-  await runMigrations(db);
   await initLedger(config);
-  console.log(`[worker] ready (ledger: ${config.ledgerMode})`);
+  console.log(`[worker] ready (ledger: ${config.ledgerMode}); API service owns database migrations`);
 
   while (running) {
     let worked = false;

@@ -17,6 +17,9 @@ export type Database = Db;
 export function createDb(databaseUrl: string): Db {
   const client = postgres(databaseUrl, {
     max: 10,
+    // Neon pooled URLs use transaction pooling, which does not support named
+    // prepared statements across backend connections.
+    prepare: false,
     onnotice: () => {},
     connect_timeout: 10,
   });

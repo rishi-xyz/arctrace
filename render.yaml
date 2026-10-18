@@ -1,0 +1,69 @@
+services:
+  - type: web
+    name: arctrace-api
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter arctrace-api start
+    healthCheckPath: /v1/healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: AUTO_MIGRATE
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: LEDGER_MODE
+        value: arkiv
+      - key: S3_REGION
+        value: auto
+      - key: SESSION_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: ARKIV_PRIVATE_KEY
+        sync: false
+      - key: ARCTRACE_WM_MASTER
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+  - type: worker
+    name: arctrace-worker
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter arctrace-worker start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LEDGER_MODE
+        value: arkiv
+      - key: DATABASE_URL
+        sync: false
+      - key: ARKIV_PRIVATE_KEY
+        sync: false
+      - key: ARKIV_RPC_URL
+        value: https://rpc.tiramisu.db-chain.testnet.arkiv.network
+      - key: ARCTRACE_WM_MASTER
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
