@@ -121,6 +121,22 @@ for (const { name, make } of adapters()) {
           payloadMode: "plain",
           idempotencyKey: `planted-fake-${wm}`,
         });
+      } else if (process.env.ARKIV_ATTACKER_KEY) {
+        // real planted record from a genuinely untrusted, funded wallet
+        const { ArkivAdapter } = await import("../src/arkiv.js");
+        const attacker = await new ArkivAdapter({
+          privateKey: process.env.ARKIV_ATTACKER_KEY as `0x${string}`,
+          rpcUrl: process.env.ARKIV_RPC_URL,
+        });
+        await attacker.commit({
+          kind: "decryption_event",
+          attributes: { schema: "arctrace.decryption/1", wm_code: wm, seq: 0 },
+          payload: payloadFor(`planted-fake-${wm}`),
+          retentionSeconds: RETENTION,
+          readOnly: true,
+          payloadMode: "plain",
+          idempotencyKey: `planted-fake-${wm}`,
+        });
       }
       const page = await a.query("decryption_event", { wm_code: wm }, { creators: a.trustedWriters() });
       expect(page.items.length).toBe(1);
