@@ -61,10 +61,31 @@ revision `27b032f009c234b8`, rules frozen at
    "page through everything". We page defensively (≤ 200 per page, cursor
    loop) because we could not find the answer.
 
-7. **Minor: pnpm noise, not Arkiv.** Not an Arkiv issue, but noted for
-   completeness in `/docs/blockers.md`: pnpm 11 keeps printing an
-   `[ERR_PNPM_IGNORED_BUILDS]` esbuild warning despite the approval living in
-   `pnpm-workspace.yaml`; cosmetic only.
+7. **Address attributes need an explicit `addr(...)` wrapper.** Querying
+   `$creator` with a plain string throws at build time:
+   `InvalidPredicateError: "$creator" is a addr, but the value is a str`.
+   The docs' examples read as if a string works. Wrapping with `addr()` from
+   `@arkiv-network/sdk/attr` fixes it, but the error message ("write addr(...)
+   around the value") is delivered as a thrown predicate error rather than in
+   the page that documents the query builder.
+
+8. **Read-after-write is not immediately consistent.** A 5 KB entity created
+   and then fetched in the same script was reported as "No live entity… never
+   created, or deleted or has expired" for a moment before becoming readable.
+   We added a poll-until-visible loop; a "recently created, still indexing"
+   distinct error (or a documented read-after-write guarantee) would let
+   callers avoid defensive retries.
+
+9. **Ownership transfer requires an EIP-55 checksummed address.** `change
+   Ownership` (via viem) rejects a lowercase or non-checksummed hex address
+   with "Address must match its checksum counterpart". Callers must normalise
+   first (we use `getAddress(x.toLowerCase())`), which is a small but easy-to-
+   miss step when the address came from another tool.
+
+10. **Minor: pnpm noise, not Arkiv.** Not an Arkiv issue, but noted for
+    completeness in `docs/blockers.md`: pnpm 11 keeps printing an
+    `[ERR_PNPM_IGNORED_BUILDS]` esbuild warning despite the approval living in
+    `pnpm-workspace.yaml`; cosmetic only.
 
 ## Summary for the Arkiv team
 

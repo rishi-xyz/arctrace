@@ -107,15 +107,17 @@ arkiv                schema.md, friction.md
 ```
 
 The ledger runs in **mock mode by default** (persisted to
-`apps/poc/out/mock-ledger.json`) because the testnet faucet is browser-gated;
-`LEDGER_MODE=auto|mock|arkiv` switches, `ARKIV_E2E=1` enables the live
-contract tests. Mock semantics were matched to the pinned Arkiv documentation
-and errata — see [`docs/arkiv-notes.md`](docs/arkiv-notes.md).
+`apps/poc/out/mock-ledger.json`) so the demo and tests work with no wallet;
+`LEDGER_MODE=auto|mock|arkiv` switches to the real testnet, and `ARKIV_E2E=1`
+enables the live contract tests. The live run has been verified (10/10 S1
+checks, 21/21 contract tests, `poc:demo` PASS on Tiramisu); measurements and
+errata in [`docs/arkiv-notes.md`](docs/arkiv-notes.md). Mock semantics were
+matched to the pinned Arkiv documentation and errata.
 
 ## Decisions
 
 Every non-obvious choice is logged with its trade-off in
-[`docs/decisions.md`](docs/decisions.md) (D-001…D-020) and referenced from the
+[`docs/decisions.md`](docs/decisions.md) (D-001…D-023) and referenced from the
 code. Known blockers in [`docs/blockers.md`](docs/blockers.md).
 
 ## License

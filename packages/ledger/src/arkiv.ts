@@ -17,7 +17,8 @@ import { tiramisu } from "@arkiv-network/sdk/chains";
 import { addr, str, u64 } from "@arkiv-network/sdk/attr";
 import { and, eq, or, type Expression } from "@arkiv-network/sdk/query";
 import { privateKeyToAccount } from "viem/accounts";
-import { http } from "viem";
+import { getAddress, http } from "viem";
+import { assertAllowedAttributes } from "./attributes.js";
 import { LEDGER_ERROR, LedgerError } from "./types.js";
 import type {
   LedgerAdapter,
@@ -65,7 +66,11 @@ export class ArkivAdapter implements LedgerAdapter {
   private idem = new Map<string, string>();
 
   constructor(opts: ArkivAdapterOptions) {
-    const account = privateKeyToAccount(opts.privateKey);
+    // Accept raw 64-char hex as well as 0x-prefixed keys from .env.
+    const pk = (
+      opts.privateKey.startsWith("0x") ? opts.privateKey : `0x${opts.privateKey}`
+    ) as `0x${string}`;
+    const account = privateKeyToAccount(pk);
     const transport = http(opts.rpcUrl);
     this.wallet = createWalletClient({ chain: tiramisu, transport, account });
     this.pub = createPublicClient({ chain: tiramisu, transport });
@@ -82,6 +87,9 @@ export class ArkivAdapter implements LedgerAdapter {
   }
 
   async commit(e: LedgerEntityInput): Promise<LedgerRef> {
+    // Enforce the same privacy allow-list as MockAdapter: no attribute name may
+    // leak filenames or other private metadata onto the public ledger.
+    assertAllowedAttributes(e.attributes);
     const cached = this.idem.get(e.idempotencyKey);
     if (cached) {
       const entity = await this.getByKey(cached);
@@ -212,9 +220,11 @@ export class ArkivAdapter implements LedgerAdapter {
 
   async transferOwnership(entityKey: string, newOwner: string): Promise<void> {
     try {
+      // viem requires an EIP-55 checksummed address; normalise any casing the
+      // caller supplies (same tolerance as the private-key handling above).
       await this.wallet.changeOwnership({
         entityKey: entityKey as `0x${string}`,
-        newOwner: newOwner as `0x${string}`,
+        newOwner: getAddress(newOwner.toLowerCase()),
       });
     } catch (err) {
       throw new LedgerError(LEDGER_ERROR.unavailable, `arkiv changeOwnership failed: ${(err as Error).message}`);

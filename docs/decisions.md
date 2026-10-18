@@ -177,3 +177,31 @@ arbitrate. Expected false-accept contribution is ~55 × 2⁻¹⁶ ≈ 0.0008 per
 candidate, and the D-014 confidence gate still applies to the result. This is
 the "ECC/CRC" role from the spec's package layout, implemented as list
 decoding instead of a forward error-correcting code.
+
+### D-021 Allow-list enforced in both adapters
+`MockAdapter.commit` always called `assertAllowedAttributes`, but `ArkivAdapter.commit`
+did not — caught by the shared contract suite the first time it ran against
+real Arkiv (`enforces the public attribute allow-list` failed). The allow-list
+is the privacy guarantee (no filename or private metadata may become a public,
+queryable attribute), so it must be enforced in application code, not left to
+the SDK (Arkiv accepts arbitrary user attribute names). Both adapters now call
+the same `assertAllowedAttributes` before any write.
+
+### D-022 Normalise keys and addresses from `.env`
+Real wallets export keys in different shapes and viem is strict:
+- Private keys are accepted with or without the `0x` prefix (the first live
+  `pnpm spike:s1` failed with "invalid private key, expected hex or 32 bytes,
+  got string" for a raw 64-char key). Normalised in `ArkivAdapter` and the S1
+  spike.
+- `changeOwnership` requires an EIP-55 checksummed address; a raw hex string
+  throws in viem. `ArkivAdapter.transferOwnership` normalises with
+  `getAddress(newOwner.toLowerCase())`.
+Tolerating either shape removes a whole class of "why won't it start" friction
+without weakening any check.
+
+### D-023 Tolerate eventual read-after-write consistency
+A 5 KB entity created and immediately fetched was briefly reported "No live
+entity". Rather than treat create→read as atomic, the S1 spike polls until the
+entity is visible (up to 30 s; in practice the second read succeeds in ~0.3 s).
+The app's own flow never reads an entity back immediately after writing it, so
+no other path needs the retry.

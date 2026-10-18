@@ -34,25 +34,54 @@ differ, the repository applies.
 - `@noble/ciphers@2.4.0`, `@noble/hashes@2.4.0`, `canonicalize@5.1.0` (RFC 8785
   JCS), `zod@4.6.7`, `viem@2.57.7`.
 
-## S1 spike status
+## S1 spike — live results (2026-10-18, funded wallet)
 
-`pnpm spike:s1` (`scripts/spike-s1-arkiv.ts`) is written and measures exactly
-what the checklist asks for: create/read/query, a 5 KB payload, cost and
-latency per write, query latency, expiry extension, readonly patch/extend/
-transfer/delete behaviour, and a sealed (expired) entity. It exits with code 2
-and a BLOCKED message when `ARKIV_PRIVATE_KEY` is missing or the wallet is
-unfunded — the testnet faucet requires a browser wallet sign-in and CAPTCHA,
-so a CLI wallet cannot self-fund (see `docs/blockers.md`).
+`pnpm spike:s1` (`scripts/spike-s1-arkiv.ts`) ran against the real Tiramisu
+testnet and passed **10/10 checks**:
 
-Until the wallet is funded, all ledger behaviour runs through `MockAdapter`,
+| Check | Result |
+|---|---|
+| create small entity | PASS — 7.4 s, tx `0x690db6c8…` |
+| gas per write | 107 320 gas |
+| read back by key | PASS — 129 B in 718 ms |
+| query by attribute AND `$creator` | PASS — 1 hit in 408 ms |
+| 5 KB payload | PASS — read back 5120 B after 344 ms |
+| readonly blocks patch | PASS |
+| readonly allows extension | PASS — 2.7 s |
+| transfer keeps `$creator` | PASS — owner→auditor, creator unchanged |
+| readonly allows deletion | PASS |
+| sealed payload round trip | PASS — 2745 B sealed, opened OK |
+
+Measured on testnet: write latency ≈ 5–7.4 s, read ≈ 0.7 s, query ≈ 0.4 s,
+gas per write ≈ 107 k. The PoC's trace step is dominated by the local
+watermark search (~8 s), not the Arkiv query (386 ms).
+
+- **Live contract suite:** `ARKIV_E2E=1 pnpm test` → **21/21 pass** (both
+  adapters, 62 s), including the planted-record test where a *second funded
+  wallet* writes a competing `wm_code` entity that the `$creator`-filtered
+  trace correctly ignores.
+- **Live end-to-end:** `LEDGER_MODE=arkiv pnpm poc:demo` → **PASS**, exit 0,
+  leaked copy traced to Bob (confidence 0.393); report in
+  `apps/poc/out/report.json`.
+
+The suite still runs fully in `MockAdapter` mode with no `.env`, so CI and a
+judge without a funded wallet get the same coverage minus live-network timing.
+
+### Errata found only by running against the real chain
+
+- `$creator` (and other address attributes) must be wrapped in `addr(...)`
+  from `@arkiv-network/sdk/attr`. A plain string throws
+  `InvalidPredicateError: "$creator" is a addr, but the value is a str`.
+- Read-after-write is **not immediately consistent**: a 5 KB entity created
+  immediately before `getEntity` was briefly "not found". The spike now polls
+  up to 30 s; in practice the second read succeeds within ~0.3 s.
+- `changeOwnership` requires an **EIP-55 checksummed** address (viem rejects a
+  raw hex string). The adapter normalises with `getAddress(x.toLowerCase())`.
+- Private keys pasted from a wallet export may lack the `0x` prefix; both the
+  adapter and the spike accept raw 64-char hex.
+
+Until a wallet is funded, all ledger behaviour runs through `MockAdapter`,
 whose semantics were matched to the pinned documentation and MCP errata above.
-The same contract test suite covers both adapters; once funded:
-
-```
-pnpm spike:s1            # real measurements, pasted into this file
-ARKIV_E2E=1 pnpm test    # contract suite against real Arkiv
-LEDGER_MODE=arkiv pnpm poc:demo
-```
 
 ## Where Arkiv is used in the app
 

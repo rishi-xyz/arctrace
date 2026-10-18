@@ -8,6 +8,15 @@ import { canonicalize, sha256Hex } from "@arctrace/crypto";
 import { MockAdapter } from "../src/mock.js";
 import type { LedgerAdapter } from "../src/types.js";
 
+// Load .env (same convention as scripts/ and apps/poc/demo.ts) so that
+// `ARKIV_E2E=1 pnpm test` picks up ARKIV_PRIVATE_KEY / ARKIV_ATTACKER_KEY
+// without the caller having to export them in the shell.
+try {
+  process.loadEnvFile(new URL("../../../.env", import.meta.url).pathname);
+} catch {
+  /* no .env — mock-only run */
+}
+
 const RETENTION = 3600; // 1h
 const payloadFor = (tag: string) => canonicalize({ schema: "arctrace.test/1", tag });
 

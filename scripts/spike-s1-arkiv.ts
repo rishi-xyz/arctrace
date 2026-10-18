@@ -19,7 +19,7 @@ import {
   NoEntityFoundError,
 } from "@arkiv-network/sdk";
 import { tiramisu } from "@arkiv-network/sdk/chains";
-import { str, u64 } from "@arkiv-network/sdk/attr";
+import { addr, str, u64 } from "@arkiv-network/sdk/attr";
 import { and, eq } from "@arkiv-network/sdk/query";
 import { http } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
@@ -76,7 +76,10 @@ async function main() {
     process.exit(1);
   }
 
-  const account: PrivateKeyAccount = privateKeyToAccount(pk);
+  // Accept raw 64-char hex as well as 0x-prefixed keys from .env.
+  const account: PrivateKeyAccount = privateKeyToAccount(
+    (pk.startsWith("0x") ? pk : `0x${pk}`) as `0x${string}`,
+  );
   const balance = await rpcBalance(account.address);
   console.log(`S1 Arkiv spike — writer ${account.address}`);
   console.log(`  balance: ${balance} wei`);
@@ -91,7 +94,8 @@ async function main() {
   const pub = createPublicClient({ chain: tiramisu, transport });
 
   // ---- 1. small entity: create, read back, query by attribute + $creator ----
-  const wmCode = "a1b2c3d4e5f60718";
+  // Unique per run so repeated spikes don't accumulate duplicate wm_code hits.
+  const wmCode = randomBytes_(8).toString("hex");
   const record = canonicalize({
     schema: "arctrace.decryption/1",
     docId: "11111111-1111-4111-8111-111111111111",
@@ -135,7 +139,7 @@ async function main() {
       and(
         eq("kind", str("decryption_event")),
         eq("wm_code", str(wmCode)),
-        eq("$creator", account.address),
+        eq("$creator", addr(account.address)),
       ),
     )
     .limit(10)
@@ -158,8 +162,23 @@ async function main() {
       expires: ExpirationTime.fromSeconds(RETENTION),
       flags: { readonly: true },
     });
-    const back = await pub.getEntity(bigCreated.entityKey as `0x${string}`);
-    rec("5 KB payload", (back.payload as Uint8Array).length === 5120, `accepted, read back ${(back.payload as Uint8Array).length} B`);
+    // read-after-write is not immediately consistent on testnet: poll until the
+    // entity is served, up to 30 s, and report how long the read-back took.
+    const tBig = performance.now();
+    let back: Awaited<ReturnType<typeof pub.getEntity>> | undefined;
+    for (let i = 0; i < 30 && !back; i++) {
+      try {
+        back = await pub.getEntity(bigCreated.entityKey as `0x${string}`);
+      } catch {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    if (back) {
+      const got = (back.payload as Uint8Array).length;
+      rec("5 KB payload", got === 5120, `accepted, read back ${got} B after ${(performance.now() - tBig).toFixed(0)} ms`);
+    } else {
+      rec("5 KB payload", false, `created key=${bigCreated.entityKey} but not readable within 30 s`);
+    }
   } catch (err) {
     rec("5 KB payload", false, `REJECTED: ${(err as Error).message}`);
   }
@@ -275,7 +294,8 @@ async function main() {
   console.log(`  query latency:     ${qMs.toFixed(0)} ms`);
   if (gas) console.log(`  gas per write:     ${gas.toString()}`);
   console.log(`  payload SHA-256:   ${sha256Hex(record)}`);
-  console.log(`  5 KB payload:      accepted`);
+  const bigLine = lines.find((l) => l.check === "5 KB payload");
+  console.log(`  5 KB payload:      ${bigLine?.ok ? "accepted" : `FAILED (${bigLine?.result ?? "?"})`}`);
   console.log(`  blocks:            readOnly=patch blocked, extend OK, delete OK, transfer keeps creator`);
 
   const failed = lines.filter((l) => !l.ok);
