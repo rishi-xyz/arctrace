@@ -1,4 +1,7 @@
 node_modules/
+.next/
+apps/web/public/pdf.worker.mjs
+*.tsbuildinfo
 dist/
 .env
 .env.*

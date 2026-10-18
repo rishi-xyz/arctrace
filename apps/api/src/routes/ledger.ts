@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { RouteApp } from '../compat.js';
 import {
   DOMAIN,
   DocManifestSchema,
@@ -31,7 +31,7 @@ function utf8(payload: Uint8Array): unknown {
   }
 }
 
-export async function ledgerRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function ledgerRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   const { config } = ctx;
 
   /** Ledger panel data for the UI (spec §6 status surface). */

@@ -112,7 +112,7 @@ export async function processTrace(db: Db, config: ApiConfig, traceId: string): 
     });
 
     // Ledger query by wmCode + trusted creator (spec §5).
-    let hits: Awaited<ReturnType<typeof getLedger>["query"]>["items"] = [];
+    let hits: Awaited<ReturnType<ReturnType<typeof getLedger>["query"]>>["items"] = [];
     const expression = extraction.wmCode
       ? `kind=decryption_event AND wm_code=${extraction.wmCode} AND $creator∈trusted(${trustedWriters().length})`
       : "kind=decryption_event AND (skipped: no watermark)";

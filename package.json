@@ -20,7 +20,11 @@
     "spike:s3": "tsx scripts/spike-s3-watermark.ts",
     "gen:wallet": "tsx scripts/gen-wallet.ts",
     "dev:up": "docker compose -f infra/docker-compose.yml up -d",
-    "dev:down": "docker compose -f infra/docker-compose.yml down"
+    "dev:down": "docker compose -f infra/docker-compose.yml down",
+    "dev:web": "pnpm --filter arctrace-web dev",
+    "dev:api": "pnpm --filter arctrace-api dev",
+    "dev:worker": "pnpm --filter arctrace-worker dev",
+    "verify": "tsx packages/verify/src/cli.ts"
   },
   "dependencies": {
     "@arctrace/crypto": "workspace:*",

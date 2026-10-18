@@ -69,7 +69,7 @@ Use these as the "Why India" narrative. Paraphrase them. Do not claim MoD asked 
 
 ## Locked decisions (do not re-debate)
 - Language: TypeScript, pnpm monorepo, Node 20+.
-- Web: Next.js (App Router). API: Fastify. DB: Postgres. Blobs: S3 or MinIO. Local dev: Docker Compose.
+- Web: Next.js (App Router). API: Express. DB: Postgres. Blobs: S3 or MinIO. Local dev: Docker Compose.
 - Crypto: **ML-KEM-768** (FIPS 203), **ML-DSA-65** (FIPS 204) via `@noble/post-quantum`. AES-256-GCM via WebCrypto. HKDF-SHA-256. SHA-256. Canonical JSON per RFC 8785.
 - Plaintext never touches the server. Decryption and watermarking happen in the browser.
 - Ledger access only through a `LedgerAdapter` interface. A mock adapter exists for tests.

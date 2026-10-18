@@ -49,30 +49,30 @@ Goal: one script proves the whole idea.
 ## Phase 2: MVP web app (Days 2-3)
 
 ### 2A: Backend
-- [ ] `apps/api`: Fastify, Zod validation, Drizzle migrations for the tables in spec.md section 7.
-- [ ] Auth (register, login, logout, `/me`), roles, session cookie, CSRF.
-- [ ] `POST /keys`, `GET /keys/:userId` with proof-of-possession check and ledger commit.
-- [ ] Documents: create, presigned upload, finalize (manifest and grants), list, get.
-- [ ] `open/begin` and `open/commit` with the full verification order in spec.md section 6.
-- [ ] Ledger outbox and worker for non-blocking commits.
-- [ ] Trace endpoints and `apps/worker` extraction job.
-- [ ] `/healthz` and `/readyz`.
+- [x] `apps/api`: Express, Zod validation, Drizzle migrations for the tables in spec.md section 7.
+- [x] Auth (register, login, logout, `/me`), roles, session cookie, CSRF.
+- [x] `POST /keys`, `GET /keys/:userId` with proof-of-possession check and ledger commit.
+- [x] Documents: create, presigned upload, finalize (manifest and grants), list, get.
+- [x] `open/begin` and `open/commit` with the full verification order in spec.md section 6.
+- [x] Ledger outbox and worker for non-blocking commits.
+- [x] Trace endpoints and `apps/worker` extraction job.
+- [x] `/healthz` and `/readyz`.
 
 ### 2B: Frontend (CUT LINE: items marked with a star are the minimum for a 2-day demo)
-- [ ] ★ Sign up, key generation, passphrase, encrypted key storage in IndexedDB.
-- [ ] ★ Sender: pick file, pick recipients, encrypt in the browser, upload, finalize.
-- [ ] ★ Recipient inbox and open flow: begin, sign, commit, decrypt, watermark, render in a Web Worker.
-- [ ] ★ Investigator: upload leaked file, show result, confidence and the Arkiv record.
-- [ ] Ledger status panel: show the Arkiv entity key and a link to the explorer.
-- [ ] Evidence bundle download button.
-- [ ] Error states: ledger down (fail closed), wrong passphrase, revoked key.
-- [ ] Basic accessibility pass (keyboard, labels, contrast).
+- [x] ★ Sign up, key generation, passphrase, encrypted key storage in IndexedDB. *(Argon2id + AES-GCM, generated in the browser; manual check pending.)*
+- [x] ★ Sender: pick file, pick recipients, encrypt in the browser, upload, finalize.
+- [x] ★ Recipient inbox and open flow: begin, sign, commit, decrypt, watermark, render in a Web Worker. *(PDF pages are rasterized and watermarked client-side.)*
+- [x] ★ Investigator: upload leaked file, show result, confidence and the Arkiv record.
+- [x] Ledger status panel: show the Arkiv entity key and a link to the explorer.
+- [x] Evidence bundle download button. *(Investigator-signed ZIP with JSON, PDF summary and ledger proofs.)*
+- [x] Error states: ledger down (fail closed), wrong passphrase, revoked key.
+- [ ] Basic accessibility pass (keyboard, labels, contrast). *(Initial labels and keyboard flows are present; full pass pending.)*
 
 ### 2C: Verifier
-- [ ] `packages/verify` and `arctrace-verify` CLI with online and offline modes.
-- [ ] Evidence bundle format per spec.md section 8.
+- [x] `packages/verify` and `arctrace-verify` CLI with online and offline modes.
+- [x] Evidence bundle format per spec.md section 8. *(Signed ZIP with JSON, PDF report, hashes, ledger proofs and verifier instructions.)*
 
-**Exit gate:** Playwright e2e passes: share, open as two users, upload a degraded screenshot, correct user named, bundle verifies.
+**Exit gate:** manually verify share, open as two users, upload a degraded screenshot, correct user named, and bundle verification. *(Playwright is intentionally omitted per project owner.)*
 
 ## Phase 3: Hardening (Day 4)
 - [ ] **Gate service** (`apps/gate`): `/release`, `/grant-share`, independent Arkiv check, rate limits. `GATE_MODE=on` e2e test proving that without a ledger entity the client cannot decrypt.

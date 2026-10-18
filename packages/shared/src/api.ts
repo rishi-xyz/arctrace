@@ -376,6 +376,7 @@ export const BundleResponseSchema = z
     core: z.record(z.string(), z.unknown()),
     proofs: z.object({
       keyRegistration: LedgerEntityProofSchema.nullable(),
+      investigatorKeyRegistration: LedgerEntityProofSchema.nullable(),
       manifest: LedgerEntityProofSchema.nullable(),
       decryptionRecord: LedgerEntityProofSchema,
     }),

@@ -16,7 +16,8 @@
     "@arctrace/crypto": "workspace:*",
     "@arctrace/ledger": "workspace:*",
     "@arctrace/shared": "workspace:*",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "tsx": "^4.19.2"

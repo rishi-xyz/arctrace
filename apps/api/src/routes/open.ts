@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { RouteApp } from '../compat.js';
 import { eq } from 'drizzle-orm';
 import {
   DOMAIN,
@@ -41,7 +41,7 @@ import type { Ctx } from '../types.js';
 
 const CLOCK_SKEW_MS = 10 * 60 * 1000; // spec §6: clientTime ±10 minutes
 
-export async function openRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function openRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   const { db, config } = ctx;
 
   /**

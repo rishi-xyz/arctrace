@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { RouteApp } from '../compat.js';
 import { eq } from 'drizzle-orm';
 import {
   DOMAIN,
@@ -29,7 +29,7 @@ function toPublicKey(row: typeof userKeys.$inferSelect): PublicKey {
   };
 }
 
-export async function keysRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function keysRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   const { db, config } = ctx;
 
   /**

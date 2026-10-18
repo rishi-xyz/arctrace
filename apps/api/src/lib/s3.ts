@@ -137,7 +137,7 @@ export async function presignGet(
  * The API hands clients BOTH forms of an object URL:
  *  - the absolute presigned MinIO URL (usable by CLI / server-side fetches)
  *  - a same-origin `/s3/<bucket>/<key>?<same query>` path the browser uses so
- *    the web app never depends on MinIO CORS. Vite (and any reverse proxy)
+ *    the web app never depends on MinIO CORS. Next.js (and any reverse proxy)
  *    strips the `/s3` prefix and forwards to MinIO with Host = MinIO, which
  *    is the host the signature was computed over.
  */

@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { RouteApp, ApiReply } from '../compat.js';
 import { eq } from 'drizzle-orm';
 import {
   LoginRequestSchema,
@@ -21,7 +21,7 @@ import { sessionUser } from './helpers.js';
 import type { Ctx } from '../types.js';
 
 function setSessionCookie(
-  reply: FastifyReply,
+  reply: ApiReply,
   ctx: Ctx,
   token: string,
   expiresAt: Date,
@@ -35,7 +35,7 @@ function setSessionCookie(
   });
 }
 
-export async function authRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function authRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   const { db, config } = ctx;
 
   /**

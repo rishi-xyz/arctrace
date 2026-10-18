@@ -39,6 +39,35 @@ Other scripts: `pnpm spike:s2` (PQC measurements), `pnpm spike:s3` (watermark
 spike: real PNG → JPEG Q75 → extract), `pnpm dev:up` / `pnpm dev:down`
 (Postgres + MinIO for Phase 2), `pnpm typecheck`, `pnpm lint`.
 
+## Web MVP (Phase 2)
+
+The browser app uses Next.js App Router, Tailwind CSS and shadcn-style UI
+components. The API runs on Express. Start local services with `pnpm dev:up`,
+then run these in separate terminals:
+
+```bash
+cp .env.example .env # one-time local setup; mock ledger works without a wallet
+pnpm dev:up
+pnpm dev:api       # http://localhost:3001
+pnpm dev:worker    # ledger outbox + trace extraction jobs
+pnpm dev:web       # http://localhost:3000
+```
+
+Create two workspace accounts to try sharing: register both accounts, set up
+each account's post-quantum keys in **Members & keys**, share a PNG/JPEG/TXT/PDF
+from the sender account, then open it from the recipient inbox. The browser
+encrypts documents before upload, stores private keys encrypted in IndexedDB,
+and commits the recipient's signed open before releasing plaintext. Investigate
+accepts leak uploads; keep the worker running to process them. Manual testing is
+the Phase 2 acceptance path; no Playwright suite is included.
+
+Download the signed evidence ZIP from an investigation result, then verify it:
+
+```bash
+pnpm verify ./arctrace-evidence.zip --offline
+pnpm verify ./arctrace-evidence.zip # also checks the configured ledger
+```
+
 ## How it works
 
 ```
@@ -129,6 +158,9 @@ packages/crypto      ML-KEM/ML-DSA/AES-GCM/JCS primitives
 packages/watermark   DCT raster watermark + text carrier + attack suite
 packages/ledger      LedgerAdapter: MockAdapter | ArkivAdapter
 apps/poc             demo.ts — the end-to-end CLI
+apps/web             Next.js App Router browser application
+apps/api             Express API, auth, document flows, Arkiv commits
+apps/worker          ledger outbox relay + leak extraction worker
 scripts              spikes S1–S3, wallet generation
 infra                docker-compose.yml (Postgres + MinIO, Phase 2)
 docs                 decisions.md, arkiv-notes.md, blockers.md

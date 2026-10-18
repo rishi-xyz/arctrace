@@ -18,7 +18,7 @@
         |                        |                        |
 +-------+--------+      +--------+--------+      +--------+--------+
 |   API service  |      |  Gate service   |      | Witness + Keeper |
-|  (Fastify)     |      |  (separate proc)|      | (separate creds) |
+|  (Express)     |      |  (separate proc)|      | (separate creds) |
 +---+--------+---+      +--------+--------+      +------------------+
     |        |                   ^
     |        v                   | gate share (after it sees the Arkiv entity)

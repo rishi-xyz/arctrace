@@ -1,11 +1,11 @@
-import type { FastifyInstance } from 'fastify';
+import type { RouteApp } from '../compat.js';
 import type { ReadyResponse } from '@arctrace/shared';
 import { pingDb } from '../db/index.js';
 import { ensureBucket } from '../lib/s3.js';
 import { ledgerStatus } from '../lib/status.js';
 import type { Ctx } from '../types.js';
 
-export async function healthRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function healthRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   /** Liveness — no dependencies (spec §6). */
   app.get('/healthz', async () => ({ status: 'ok', at: new Date().toISOString() }));
 

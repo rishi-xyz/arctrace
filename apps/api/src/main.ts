@@ -26,12 +26,12 @@ async function main(): Promise<void> {
   console.log(`[api] object storage: ${config.s3.endpoint} bucket "${config.s3.bucket}"`);
 
   const app = await buildApp(config, { db });
-  await app.listen({ port: config.port, host: '0.0.0.0' });
+  const server = app.listen(config.port, '0.0.0.0');
   console.log(`[api] listening on http://localhost:${config.port} (mode: ${choice.mode})`);
 
   const shutdown = async (signal: string) => {
     console.log(`[api] ${signal} — shutting down`);
-    await app.close();
+    await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));

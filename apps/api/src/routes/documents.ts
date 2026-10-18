@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { RouteApp } from '../compat.js';
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import {
@@ -31,7 +31,7 @@ export type RevokeGrantRequest = z.infer<typeof RevokeGrantRequestSchema>;
 
 const GRANT_SCHEMA = 'arctrace.grant/1';
 
-export async function documentRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function documentRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   const { db, config } = ctx;
 
   async function senderKeys(senderId: string) {

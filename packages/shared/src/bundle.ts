@@ -46,12 +46,18 @@ export const EvidenceBundleCoreSchema = z
     record: SignedDecryptionRecordSchema,
     signerKeyFp: hexSchema(32),
     ledgerRef: z.object({
-      committedAt: z.string(),
+      createdAtBlock: z.string(),
       txHash: z.string().nullable().optional(),
     }),
     chain: BundleChainSchema.nullable(),
     trustedWriters: z.array(z.string()).min(1),
     recipientId: z.string().uuid(),
+    proofHashes: z.object({
+      keyRegistration: hexSchema(32),
+      investigatorKeyRegistration: hexSchema(32),
+      manifest: hexSchema(32).nullable(),
+      decryptionRecord: hexSchema(32),
+    }).strict(),
   })
   .strict();
 export type EvidenceBundleCore = z.infer<typeof EvidenceBundleCoreSchema>;

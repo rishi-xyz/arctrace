@@ -1,28 +1,19 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiConfig } from '../config.js';
 import type { Database } from '../db/index.js';
+import type { ApiReply, ApiRequest } from '../compat.js';
 import { forbidden, unauthenticated } from './errors.js';
 import { loadSession, SESSION_COOKIE, type AuthedUser } from './session.js';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: AuthedUser;
-  }
-  interface FastifyInstance {
-    /** Global session+CSRF guard (attached in buildApp). */
-    authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
-  }
-}
 
 /**
  * Login/register must come from an allowed origin (defends against cross-site
  * form posts riding the browser). Requests without an Origin header (curl,
  * tests) are allowed — the session cookie + CSRF token still gate access.
  */
-export function assertSameOrigin(req: FastifyRequest, config: ApiConfig): void {
-  const origin = req.headers.origin;
+export function assertSameOrigin(req: ApiRequest, config: ApiConfig): void {
+  const rawOrigin = req.headers.origin;
+  const origin = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
   if (!origin) return;
   const allowed = new Set(config.allowedOrigins);
   if (config.env !== 'production') {
@@ -34,7 +25,7 @@ export function assertSameOrigin(req: FastifyRequest, config: ApiConfig): void {
 
 export function makeAuthGuard(config: ApiConfig, db: Database) {
   void config; // origin checks are route-specific (register/login only)
-  return async function authenticate(req: FastifyRequest, _reply: FastifyReply): Promise<void> {
+  return async function authenticate(req: ApiRequest, _reply: ApiReply): Promise<void> {
     const token = req.cookies?.[SESSION_COOKIE];
     const csrf = req.headers['x-csrf-token'];
     const user = await loadSession({
@@ -48,7 +39,7 @@ export function makeAuthGuard(config: ApiConfig, db: Database) {
   };
 }
 
-export function requireUser(req: FastifyRequest): AuthedUser {
+export function requireUser(req: ApiRequest): AuthedUser {
   if (!req.user) throw unauthenticated();
   return req.user;
 }

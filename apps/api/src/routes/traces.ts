@@ -1,6 +1,6 @@
-import type { FastifyInstance } from 'fastify';
+import type { RouteApp } from '../compat.js';
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   BundleResponseSchema,
   TraceResultSchema,
@@ -8,7 +8,7 @@ import {
   type TraceStatusResponse,
 } from '@arctrace/shared';
 import { toBase64 } from '@arctrace/crypto';
-import { traces } from '../db/schema.js';
+import { traces, userKeys } from '../db/schema.js';
 import { writeAudit } from '../lib/audit.js';
 import { requireUser } from '../lib/auth.js';
 import { badRequest, conflict, ledgerUnavailable, notFound } from '../lib/errors.js';
@@ -39,7 +39,7 @@ function toProof(e: LedgerEntity) {
   };
 }
 
-export async function traceRoutes(app: FastifyInstance, ctx: Ctx): Promise<void> {
+export async function traceRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
   const { db, config } = ctx;
 
   async function loadTraceFor(id: string, user: { id: string; orgId?: string; role: string }) {
@@ -153,6 +153,7 @@ export async function traceRoutes(app: FastifyInstance, ctx: Ctx): Promise<void>
       if (!decryptionEntity) throw conflict('Decryption record no longer on the ledger');
 
       let keyRegEntity: LedgerEntity | null = null;
+      let investigatorKeyRegEntity: LedgerEntity | null = null;
       let manifestEntity: LedgerEntity | null = null;
       try {
         const kr = await ledger.query(
@@ -161,6 +162,21 @@ export async function traceRoutes(app: FastifyInstance, ctx: Ctx): Promise<void>
           { creators: writers, limit: 5 },
         );
         keyRegEntity = kr.items[0] ?? null;
+        const investigatorKeys = await db
+          .select({ sigFp: userKeys.sigFp })
+          .from(userKeys)
+          .where(and(eq(userKeys.userId, user.id), eq(userKeys.status, 'active')))
+          .limit(1);
+        const investigatorFp = investigatorKeys[0]?.sigFp;
+        if (investigatorFp === rec.recipientSigKeyFp) investigatorKeyRegEntity = keyRegEntity;
+        else if (investigatorFp) {
+          const investigatorReg = await ledger.query(
+            'key_registration',
+            { key_fp: investigatorFp },
+            { creators: writers, limit: 5 },
+          );
+          investigatorKeyRegEntity = investigatorReg.items[0] ?? null;
+        }
         const mf = await ledger.query(
           'doc_manifest',
           { doc_id: rec.docId },
@@ -174,28 +190,29 @@ export async function traceRoutes(app: FastifyInstance, ctx: Ctx): Promise<void>
       // --- bundle core (unsigned; investigatorSig is added client-side) -----
       const createdAt = new Date().toISOString();
       const core = {
+        schema: 'arctrace.bundle/1' as const,
         traceId: trace.id,
+        orgId: trace.orgId,
+        createdAt,
+        fileKind: trace.fileKind as 'png' | 'jpeg' | 'pdf' | 'txt',
         leakedFileSha256: trace.leakedSha256,
         extraction: {
-          wmCode: result.extraction.wmCode,
+          wmCode: result.extraction.wmCode!,
           confidence: result.extraction.confidence,
           alignment: result.extraction.alignment,
         },
+        query: result.query,
         entityKey: result.entityKey,
+        creator: decryptionEntity.creator,
         record,
-        signature: record.sig,
         signerKeyFp: rec.recipientSigKeyFp,
         ledgerRef: {
-          entityKey: result.entityKey,
-          creator: decryptionEntity.creator,
-          explorerUrl: `${config.explorerUrl.replace(/\/$/, '')}/entity/${result.entityKey}`,
+          createdAtBlock: String(decryptionEntity.createdAt),
+          txHash: null,
         },
-        anchorProof: null, // anchors land in a later phase
-        chainCheck: result.chain,
-        query: result.query,
-        checks: result.checks,
-        createdAt,
-        investigatorSig: null,
+        chain: result.chain,
+        trustedWriters: writers,
+        recipientId: rec.recipientId,
       };
 
       const recipientName = result.recipient?.displayName ?? 'unknown';
@@ -245,6 +262,7 @@ export async function traceRoutes(app: FastifyInstance, ctx: Ctx): Promise<void>
         core,
         proofs: {
           keyRegistration: keyRegEntity ? toProof(keyRegEntity) : null,
+          investigatorKeyRegistration: investigatorKeyRegEntity ? toProof(investigatorKeyRegEntity) : null,
           manifest: manifestEntity ? toProof(manifestEntity) : null,
           decryptionRecord: toProof(decryptionEntity),
         },

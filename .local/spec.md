@@ -7,7 +7,7 @@ Everything here is a contract for the coding agent. Where a library detail is un
 arctrace/
   apps/
     web/            Next.js (App Router), Web Workers
-    api/            Fastify + Zod + Drizzle (or Prisma)
+    api/            Express + Zod + Drizzle (or Prisma)
     gate/           Fastify, tiny, separate process
     witness/        Node worker: mirror + alerts
     keeper/         Node worker: extend expiry
@@ -20,9 +20,8 @@ arctrace/
     verify/         evidence bundle verification library + CLI (arctrace-verify)
   infra/            docker-compose.yml, Dockerfiles, Caddyfile
   docs/             arkiv-notes.md, decisions.md, blockers.md, runbooks/
-  e2e/              Playwright tests
 ```
-Tooling: pnpm workspaces, TypeScript strict, ESLint, Prettier, Vitest, Playwright, Zod, pino.
+Tooling: pnpm workspaces, TypeScript strict, ESLint, Prettier, Vitest, Zod, pino.
 
 ## 2. Crypto package
 
@@ -272,7 +271,7 @@ VERIFY.md            how to run arctrace-verify
 | Property | JCS determinism across key order; sign/verify round trip; tamper any byte fails |
 | Watermark | Attack suite with thresholds above; PSNR and false positive reports saved to `reports/` |
 | Integration | API with MockAdapter (including read-only, creator filter and ownership transfer); real Arkiv adapter tests behind `ARKIV_E2E=1`; sealed payload round trip |
-| E2E (Playwright) | share, open, trace, verify, revoke, fail-closed when ledger down |
+| Manual acceptance | owner manually checks share, open, trace, verify, revoke and fail-closed behaviour |
 | Security | replay commit, wrong signer, revoked key, expired challenge, tampered record, gate bypass attempt, planted record from an untrusted wallet, attempted update or delete of a read-only entity, public attribute allow-list scan |
 | Load (k6) | 50 concurrent opens, 20 concurrent traces; record p95 |
 | Chaos | kill Arkiv mid-commit; delete an entity and see witness alert |

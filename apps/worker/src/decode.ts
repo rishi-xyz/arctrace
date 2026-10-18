@@ -71,9 +71,10 @@ async function renderPdf(
         const ctx = canvas.getContext("2d");
         // pdf.js render params: the Node canvas context is duck-compatible.
         await page.render({
-          canvasContext: ctx as unknown as CanvasRenderingContext2D,
+          canvas: canvas as never,
+          canvasContext: ctx as never,
           viewport,
-        } as Parameters<typeof page.render>[0]).promise;
+        } as unknown as Parameters<typeof page.render>[0]).promise;
         const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
         images.push({ width: img.width, height: img.height, data: img.data });
       } catch (err) {
@@ -88,7 +89,7 @@ async function renderPdf(
       page.cleanup();
     }
   } finally {
-    await doc.destroy();
+    doc.cleanup();
   }
   return { images, text: textParts.length > 0 ? textParts.join("\n") : null };
 }
