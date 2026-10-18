@@ -41,6 +41,20 @@ spike: real PNG → JPEG Q75 → extract), `pnpm dev:up` / `pnpm dev:down`
 
 ## How it works
 
+```
+┌──────────────────────────── ArcTrace CLI (apps/poc/demo.ts) ──────────────────┐
+│ sender        encrypt once ─► ciphertext + per-recipient ML-KEM-wrapped DEK    │
+│ recipient     open ─► watermark(wmCode) ─► sign ─► COMMIT to Arkiv ─► decrypt  │
+│ investigator  leaked file ─► extract wmCode ─► query Arkiv ─► verify ─► name   │
+└────────────────────────────────────────────────────────────────────────────────┘
+        writes / queries entities (kind + attributes, filtered by $creator)
+        ▼
+┌──────────────────────────── LedgerAdapter ────────────────────────────────────┐
+│ MockAdapter (no wallet, default)   │   ArkivAdapter (@arkiv-network/sdk 0.8.1) │
+│ local JSON, arkiv-matching rules   │   Tiramisu testnet, read-only entities    │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
 1. **Enrol.** Each recipient gets an ML-KEM-768 + ML-DSA-65 key pair; the
    public keys are registered on Arkiv (`key_registration`).
 2. **Publish once.** The document is encrypted once (AES-256-GCM). The DEK is
@@ -77,6 +91,21 @@ noise, screenshots, and the PoC leak combo (resize 80 % + JPEG Q75). Extraction
 confidence is gated (measured: true decodes ≥ 0.41, false candidates ≤ 0.29).
 Text carrier (zero-width characters) also implemented, honestly labelled as
 fragile.
+
+### Supported attacks & honest limitations
+
+| Attack / condition | Behaviour |
+|---|---|
+| JPEG re-encode (Q60–95) | trace succeeds |
+| Resize 70–100 % | trace succeeds (grid-offset search, D-013/017) |
+| Crop, screenshot, grayscale, light noise | trace succeeds |
+| Very low JPEG quality / aggressive crop | may fall below the confidence gate → reports "no confident match" (fail-closed, no false accusation) |
+| Planted fake record from another wallet | ignored — every query filters `$creator` to the trusted writer set |
+| Tampered record payload | ML-DSA-65 verification fails → fail-closed |
+| Recipient denies opening | record is signed by the recipient's key **before** decryption, and stored read-only |
+| Record deleted / expired | trace finds nothing → fail-closed |
+| Zero-width text-level mark | fragile — reflowing or stripping whitespace removes it (labelled as such) |
+| Print-scan / photo-of-screen | **not covered yet** (Phase 6 / CUT-LINE) |
 
 ## Where Arkiv is used
 

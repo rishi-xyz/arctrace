@@ -14,15 +14,15 @@ Work top to bottom. Tick boxes as you go. Each phase must run end to end before 
 ## Phase 0: Setup and spikes (about 3-4 hours)
 - [x] **S0** Create the pnpm monorepo per spec.md section 1. TypeScript strict, ESLint, Prettier, Vitest.
 - [x] **S0** `infra/docker-compose.yml` with Postgres and MinIO. One command: `pnpm dev:up`.
-- [ ] **S1 Arkiv spike (do first, blocks everything)** — *script written and ready (`pnpm spike:s1`); BLOCKED on faucet funds, see docs/blockers.md #1. All S1 facts verified from the pinned Arkiv MCP + SDK 0.8.1 source, recorded in docs/arkiv-notes.md.*
-  - [ ] Read https://docs.arkiv.network and https://hub.arkiv.network/resources. Get testnet funds from the faucet. *(docs read via MCP; faucet needs browser + CAPTCHA — human step)*
-  - [ ] Write one entity with attributes and a payload. Read it back. Query by an attribute.
-  - [ ] Measure: max payload size, cost per write, write latency, query latency, expiry extension, deletion behavior.
-  - [ ] Test a 5 KB payload. If rejected, choose the off-chain payload fallback in spec.md 4.1.
-  - [ ] Create an entity with `readOnly: true`. Try to update it, delete it and extend its life. Record which of these succeed.
-  - [ ] Confirm `$creator` can be combined with attribute filters in one query.
-  - [ ] Call `transferEntityOwnership` on a read-only entity. Check that `$creator` still shows the writer after the transfer.
-  - [ ] Round-trip an encrypted (sealed) payload and confirm attribute queries still work.
+- [x] **S1 Arkiv spike (do first, blocks everything)** — *DONE on live Tiramisu testnet: `pnpm spike:s1` → 10/10 checks pass. Measurements + errata in docs/arkiv-notes.md. Wallet funded manually (faucet needs browser + CAPTCHA).*
+  - [x] Read https://docs.arkiv.network and https://hub.arkiv.network/resources. Get testnet funds from the faucet. *(docs read via MCP; two wallets funded manually — browser + CAPTCHA step)*
+  - [x] Write one entity with attributes and a payload. Read it back. Query by an attribute. *(live: create 7.4 s, read-back 718 ms, query 408 ms)*
+  - [x] Measure: max payload size, cost per write, write latency, query latency, expiry extension, deletion behavior. *(128 KiB max payload; 107 320 gas/write; write ≈5–7 s; read ≈0.7 s; query ≈0.4 s; extend + delete both succeed on readonly)*
+  - [x] Test a 5 KB payload. If rejected, choose the off-chain payload fallback in spec.md 4.1. *(accepted, read back 5120 B — no fallback needed)*
+  - [x] Create an entity with `readOnly: true`. Try to update it, delete it and extend its life. Record which of these succeed. *(patch blocked; extend OK; delete OK)*
+  - [x] Confirm `$creator` can be combined with attribute filters in one query. *(live: 1 hit in 408 ms; needs `addr(...)` wrapper — see errata)*
+  - [x] Call `transferEntityOwnership` on a read-only entity. Check that `$creator` still shows the writer after the transfer. *(owner→auditor; creator unchanged)*
+  - [x] Round-trip an encrypted (sealed) payload and confirm attribute queries still work. *(live: sealed 2745 B, opened OK, attributes intact)*
   - [x] Write everything in `docs/arkiv-notes.md` with exact package names and versions.
 - [x] **S2 PQC spike:** `@noble/post-quantum` ML-KEM-768 and ML-DSA-65 work in Node and in a browser worker. Note argument orders and key and signature sizes in `docs/decisions.md`. *(Node validated: `pnpm spike:s2` green; argument orders + sizes in D-011. Browser worker deferred to Phase 2, D-020.)*
 - [x] **S3 Watermark spike:** embed 80 bits in one PNG using DCT differential embedding, JPEG Q75 it, extract it. Report the bit error rate and PSNR. *(BER 0, PSNR 38.2 dB, real PNG file round trip: `pnpm spike:s3`)*
@@ -32,9 +32,9 @@ Work top to bottom. Tick boxes as you go. Each phase must run end to end before 
 Goal: one script proves the whole idea.
 - [x] `packages/shared`: Zod schemas for `DecryptionRecord`, `SignedDecryptionRecord`.
 - [x] `packages/crypto`: keygen, encaps/decaps, sign/verify with domain strings, AES-GCM, HKDF `wrapKey`, JCS canonicalize, fingerprint. With tests and KATs. *(sizes, argument orders and deterministic-signing verified — D-011; ACVP KAT decision documented)*
-- [x] `packages/ledger`: `LedgerAdapter`, `MockAdapter`, `ArkivAdapter` (from S1). Contract test suite that runs against both. *(ArkivAdapter written against SDK 0.8.1; live run gated on `ARKIV_E2E=1` + faucet funds)*
+- [x] `packages/ledger`: `LedgerAdapter`, `MockAdapter`, `ArkivAdapter` (from S1). Contract test suite that runs against both. *(live: `ARKIV_E2E=1 pnpm test` → 21/21 pass on Tiramisu, both adapters)*
   - [x] Create entities read-only. Every query passes `creators`.
-  - [x] Planted-record test: a second wallet writes a fake `wmCode` entity and the trace ignores it.
+  - [x] Planted-record test: a second wallet writes a fake `wmCode` entity and the trace ignores it. *(runs live from the second funded wallet — `ARKIV_ATTACKER_KEY`)*
 - [x] `packages/watermark`: payload (64-bit + CRC16), DCT helpers, `embedRaster`, `extractRaster`, grid-offset search. Unit tests. *(19/19 green; plan-offset crop search + confidence gate + list decode — D-013..D-019)*
 - [x] PoC CLI `pnpm poc:demo`:
   - [x] Generate keys for Alice, Bob, Carol.
@@ -44,7 +44,7 @@ Goal: one script proves the whole idea.
   - [x] Trace: extract, query Arkiv by `wmCode` and `$creator` (print the query and the result), verify signature, print "Bob" and a verification report.
 - [ ] Record a 60 second screen capture of the CLI demo. This is your fallback demo. *(human step — run `pnpm poc:demo`, ~15 s, output is stable)*
 
-**Exit gate:** the CLI prints the correct recipient from a degraded copy ~~using real Arkiv testnet data~~ — **mock-ledger mode complete; the same command runs on real Arkiv with `LEDGER_MODE=arkiv` once the faucet funds the wallet** (docs/blockers.md #1).
+**Exit gate:** the CLI prints the correct recipient from a degraded copy **using real Arkiv testnet data** — **PASS**: `LEDGER_MODE=arkiv pnpm poc:demo` traced the leaked copy to Bob on Tiramisu, exit 0 (proof in `apps/poc/out/report.json`).
 
 ## Phase 2: MVP web app (Days 2-3)
 
@@ -119,10 +119,10 @@ Goal: one script proves the whole idea.
 - [ ] Deployed demo URL working, with seeded demo users (Alice, Bob, Carol) and sample documents.
 - [ ] Demo script from prd.md section 11 rehearsed twice. Backup video from Phase 1 ready.
 - [ ] The demo shows the full loop on screen: file opened, record created, leaked copy found, query by `wmCode` shown, reader identified. Also show the read-only flag and the `$creator` filter.
-- [ ] README with a one-command setup, architecture diagram, and the "Where Arkiv is used" table.
-- [ ] 300-character summary and a short pitch with the Why India evidence (paraphrased, sources listed).
-- [ ] **Friction report:** list every Arkiv rough edge you hit (docs gaps, limits, errors, latency, costs) and what you did about it.
-- [ ] Supported-attacks table and honest limitations slide.
+- [x] README with a one-command setup, architecture diagram, and the "Where Arkiv is used" table. *(`README.md`: setup, ASCII architecture diagram, "Where Arkiv is used" table, supported-attacks table)*
+- [x] 300-character summary and a short pitch with the Why India evidence (paraphrased, sources listed). *(drafted in `.local/submission-draft.md` for paste into Devfolio)*
+- [x] **Friction report:** list every Arkiv rough edge you hit (docs gaps, limits, errors, latency, costs) and what you did about it. *(`arkiv/friction.md`: faucet, `$creator` `addr()` wrapper, read-after-write, address checksum, casing, readonly semantics, no batch create, query cost)*
+- [x] Supported-attacks table and honest limitations slide. *(README "Supported attacks & honest limitations"; pitch notes in `.local/submission-draft.md`)*
 - [ ] Submit on Devfolio before the deadline. Confirm the deadline now.
 - [ ] Message the Arkiv DevRel with the repo link, the demo link and your open questions.
 

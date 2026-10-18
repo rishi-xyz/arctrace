@@ -18,6 +18,11 @@ semantics were matched to the pinned Arkiv documentation and MCP errata
 (`docs/arkiv-notes.md`). The contract suite still runs against both adapters
 behind one env var.
 
+### pnpm esbuild build-approval warning — RESOLVED
+pnpm 11 rewrote the stale `onlyBuiltDependencies: [esbuild]` block in
+`pnpm-workspace.yaml` to the current `allowBuilds: { esbuild: true }` form; the
+`[ERR_PNPM_IGNORED_BUILDS]` warning no longer appears.
+
 ## Hard blockers (external)
 
 ### 1. 60-second screen capture (checklist Phase 1 exit)
@@ -27,15 +32,7 @@ stable and reproducible with `pnpm poc:demo` (~15 s end-to-end in mock mode, or
 
 ## Soft blockers (workarounds in place)
 
-### 2. pnpm "Ignored build scripts: esbuild" warning
-pnpm 11.28.4 prints `[ERR_PNPM_IGNORED_BUILDS]` on every command even after
-`onlyBuiltDependencies: [esbuild]` was moved to `pnpm-workspace.yaml` and an
-`--force` reinstall. The warning is cosmetic: esbuild executes correctly (the
-full test suite, `tsx` runs, and every spike pass). The approval cache appears
-stale; `pnpm approve-builds` is interactive and was not run. No functional
-impact.
-
-### 3. Browser-worker PQC validation deferred (decision D-020)
+### 2. Browser-worker PQC validation deferred (decision D-020)
 S2 asks for Node and browser-worker round trips; only Node was validated today.
 `@noble/post-quantum` 0.7.1 uses no Node-specific APIs in the paths we call, so
 the browser worker is expected to work unchanged — but that is unmeasured and

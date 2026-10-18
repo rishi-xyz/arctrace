@@ -82,10 +82,11 @@ revision `27b032f009c234b8`, rules frozen at
    first (we use `getAddress(x.toLowerCase())`), which is a small but easy-to-
    miss step when the address came from another tool.
 
-10. **Minor: pnpm noise, not Arkiv.** Not an Arkiv issue, but noted for
-    completeness in `docs/blockers.md`: pnpm 11 keeps printing an
-    `[ERR_PNPM_IGNORED_BUILDS]` esbuild warning despite the approval living in
-    `pnpm-workspace.yaml`; cosmetic only.
+10. **Minor: pnpm config drift, not Arkiv.** Not an Arkiv issue. pnpm 11
+    auto-migrated our `onlyBuiltDependencies: [esbuild]` block in
+    `pnpm-workspace.yaml` to the newer `allowBuilds: { esbuild: true }` form,
+    which cleared the `[ERR_PNPM_IGNORED_BUILDS]` warning. Noted for
+    completeness in `docs/blockers.md`.
 
 ## Summary for the Arkiv team
 
