@@ -1,0 +1,24 @@
+{
+  "name": "@arctrace/verify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "arctrace-verify": "./bin/arctrace-verify.mjs"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@arctrace/crypto": "workspace:*",
+    "@arctrace/ledger": "workspace:*",
+    "@arctrace/shared": "workspace:*",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

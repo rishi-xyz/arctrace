@@ -19,9 +19,12 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    # Upstream minio/minio pulls are blocked by the registry mirror on some
+    # machines; bitnamilegacy is the frozen official MinIO build (decision
+    # D-0xx). Data dir differs from upstream, hence the command + volume path.
+    image: bitnamilegacy/minio:latest
     container_name: arctrace-minio
-    command: server /data --console-address ":9001"
+    command: server /bitnami/minio/data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: arctrace
       MINIO_ROOT_PASSWORD: arctrace123
@@ -29,9 +32,9 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - miniodata:/data
+      - miniodata:/bitnami/minio/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10

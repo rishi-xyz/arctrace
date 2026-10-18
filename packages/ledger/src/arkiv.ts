@@ -49,8 +49,9 @@ function fromAttrValue(a: { type: string; value: unknown }): string | number {
 }
 
 export interface ArkivAdapterOptions {
-  /** Hex private key of the writer wallet (0x...). */
-  privateKey: `0x${string}`;
+  /** Hex private key of the writer wallet (0x...). Optional: omit for a
+   *  read-only adapter (queries and reads only) used by arctrace-verify. */
+  privateKey?: `0x${string}`;
   /** Optional RPC URL override. */
   rpcUrl?: string;
   /** Auditor wallet that receives ownership after creation. */
@@ -59,27 +60,29 @@ export interface ArkivAdapterOptions {
 
 export class ArkivAdapter implements LedgerAdapter {
   readonly name = "arkiv";
-  private wallet;
+  private wallet?: ReturnType<typeof createWalletClient>;
   private pub;
-  private writer: string;
+  private writer?: string;
   private auditor?: string;
   private idem = new Map<string, string>();
 
   constructor(opts: ArkivAdapterOptions) {
-    // Accept raw 64-char hex as well as 0x-prefixed keys from .env.
-    const pk = (
-      opts.privateKey.startsWith("0x") ? opts.privateKey : `0x${opts.privateKey}`
-    ) as `0x${string}`;
-    const account = privateKeyToAccount(pk);
     const transport = http(opts.rpcUrl);
-    this.wallet = createWalletClient({ chain: tiramisu, transport, account });
     this.pub = createPublicClient({ chain: tiramisu, transport });
-    this.writer = account.address;
+    if (opts.privateKey) {
+      // Accept raw 64-char hex as well as 0x-prefixed keys from .env.
+      const pk = (
+        opts.privateKey.startsWith("0x") ? opts.privateKey : `0x${opts.privateKey}`
+      ) as `0x${string}`;
+      const account = privateKeyToAccount(pk);
+      this.wallet = createWalletClient({ chain: tiramisu, transport, account });
+      this.writer = account.address;
+    }
     this.auditor = opts.auditor;
   }
 
   trustedWriters(): string[] {
-    return [this.writer];
+    return this.writer ? [this.writer] : [];
   }
 
   auditorAddress(): string | undefined {
@@ -87,6 +90,12 @@ export class ArkivAdapter implements LedgerAdapter {
   }
 
   async commit(e: LedgerEntityInput): Promise<LedgerRef> {
+    if (!this.wallet) {
+      throw new LedgerError(
+        LEDGER_ERROR.unavailable,
+        "read-only adapter: no writer key configured",
+      );
+    }
     // Enforce the same privacy allow-list as MockAdapter: no attribute name may
     // leak filenames or other private metadata onto the public ledger.
     assertAllowedAttributes(e.attributes);
@@ -207,6 +216,8 @@ export class ArkivAdapter implements LedgerAdapter {
   }
 
   async extendRetention(entityKey: string, extraSeconds: number): Promise<void> {
+    if (!this.wallet)
+      throw new LedgerError(LEDGER_ERROR.unavailable, "read-only adapter: no writer key configured");
     const seconds = Math.max(2, Math.ceil(extraSeconds / 2) * 2);
     try {
       await this.wallet.extendEntity({
@@ -219,6 +230,8 @@ export class ArkivAdapter implements LedgerAdapter {
   }
 
   async transferOwnership(entityKey: string, newOwner: string): Promise<void> {
+    if (!this.wallet)
+      throw new LedgerError(LEDGER_ERROR.unavailable, "read-only adapter: no writer key configured");
     try {
       // viem requires an EIP-55 checksummed address; normalise any casing the
       // caller supplies (same tolerance as the private-key handling above).

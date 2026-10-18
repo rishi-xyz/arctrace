@@ -5,10 +5,15 @@
  *     ownership transfer, or deletion;
  *   - creator never changes, owner changes on transfer;
  *   - expiry removes the entity from reads.
- * Optional file persistence (JSON) so a PoC run survives process restarts.
+ * Optional file persistence (JSON): when constructed with `file`, the file is
+ * write-through and reloaded before every operation, so the API process and
+ * the worker process share one mock ledger during development (decision
+ * D-027). The read-modify-write window is milliseconds wide — acceptable for
+ * a local mock, and a reason to run LEDGER_MODE=arkiv for anything serious.
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { bytesToHex } from "@arctrace/crypto";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
+import { dirname } from "node:path";
+import { bytesToHex, randomBytes } from "@arctrace/crypto";
 import { LEDGER_ERROR, LedgerError } from "./types.js";
 import type {
   LedgerAdapter,
@@ -42,19 +47,31 @@ export class MockAdapter implements LedgerAdapter {
   private counter = 0;
   private writer: string;
   private auditor: string;
+  private file?: string;
 
   constructor(opts: { writer?: string; auditor?: string; file?: string } = {}) {
     this.writer = opts.writer ?? "0x00000000000000000000000000000000000000A1";
     this.auditor = opts.auditor ?? "0x00000000000000000000000000000000000000AD";
-    if (opts.file && existsSync(opts.file)) {
-      const data = JSON.parse(readFileSync(opts.file, "utf8")) as PersistShape;
-      this.counter = data.counter;
-      for (const e of data.entities) {
-        const ent: StoredEntity = { ...e, payload: new Uint8Array(e.payload) };
-        this.entities.set(ent.key, ent);
-        this.byIdem.set(ent.idempotencyKey, ent.key);
-      }
+    this.file = opts.file;
+    if (this.file && existsSync(this.file)) this.load();
+  }
+
+  /** File is the source of truth in write-through mode: reload before reads. */
+  private load(): void {
+    if (!this.file || !existsSync(this.file)) return;
+    const data = JSON.parse(readFileSync(this.file, "utf8")) as PersistShape;
+    this.counter = data.counter;
+    this.entities.clear();
+    this.byIdem.clear();
+    for (const e of data.entities) {
+      const ent: StoredEntity = { ...e, payload: new Uint8Array(e.payload) };
+      this.entities.set(ent.key, ent);
+      this.byIdem.set(ent.idempotencyKey, ent.key);
     }
+  }
+
+  private reload(): void {
+    if (this.file) this.load();
   }
 
   trustedWriters(): string[] {
@@ -70,6 +87,7 @@ export class MockAdapter implements LedgerAdapter {
   }
 
   async commit(e: LedgerEntityInput): Promise<LedgerRef> {
+    this.reload();
     assertAllowedAttributes(e.attributes);
     const existingKey = this.byIdem.get(e.idempotencyKey);
     if (existingKey) {
@@ -81,7 +99,9 @@ export class MockAdapter implements LedgerAdapter {
         committedAt: new Date().toISOString(),
       };
     }
-    const key = `0xmock${(++this.counter).toString(16).padStart(60, "0")}`;
+    // Random key (not a shared counter) so two processes writing the same
+    // file cannot mint colliding entity keys.
+    const key = `0xmock${bytesToHex(randomBytes(28))}`;
     const now = NOW_BLOCK();
     const blocks = BigInt(Math.floor(e.retentionSeconds / 2));
     const entity: StoredEntity = {
@@ -102,9 +122,10 @@ export class MockAdapter implements LedgerAdapter {
     };
     this.entities.set(key, entity);
     this.byIdem.set(e.idempotencyKey, key);
+    this.save();
     return {
       entityKey: key,
-      txHash: `0xmock${this.counter.toString(16).padStart(64, "0")}`,
+      txHash: `0xmock${bytesToHex(randomBytes(32))}`,
       blockNumber: Number(now),
       committedAt: new Date().toISOString(),
     };
@@ -118,6 +139,7 @@ export class MockAdapter implements LedgerAdapter {
   }
 
   async getByKey(entityKey: string): Promise<LedgerEntity | null> {
+    this.reload();
     const e = this.live(entityKey);
     if (!e) return null;
     const { idempotencyKey: _i, deleted: _d, ...rest } = e;
@@ -131,6 +153,7 @@ export class MockAdapter implements LedgerAdapter {
     where: Record<string, string | number>,
     opts: QueryOptions,
   ): Promise<QueryPage> {
+    this.reload();
     if (!opts.creators.length)
       throw new LedgerError(
         LEDGER_ERROR.untrustedCreator,
@@ -162,18 +185,22 @@ export class MockAdapter implements LedgerAdapter {
   }
 
   async extendRetention(entityKey: string, extraSeconds: number): Promise<void> {
+    this.reload();
     const e = this.live(entityKey);
     if (!e) throw new LedgerError(LEDGER_ERROR.notFound, `no entity ${entityKey}`);
     // Arkiv semantics: owner OR permissionlessExtension can extend.
     e.expiresAt += BigInt(Math.floor(extraSeconds / 2));
+    this.save();
   }
 
   async transferOwnership(entityKey: string, newOwner: string): Promise<void> {
+    this.reload();
     const e = this.live(entityKey);
     if (!e) throw new LedgerError(LEDGER_ERROR.notFound, `no entity ${entityKey}`);
     if (e.owner.toLowerCase() !== this.writer.toLowerCase())
       throw new LedgerError(LEDGER_ERROR.notOwner, "writer no longer owns entity");
     e.owner = newOwner;
+    this.save();
   }
 
   /** Test hook: write a record as a DIFFERENT wallet (planted-record tests). */
@@ -189,25 +216,35 @@ export class MockAdapter implements LedgerAdapter {
 
   /** Test hook: emulate an admin deleting an entity (witness chaos test). */
   async deleteForTest(entityKey: string): Promise<void> {
+    this.reload();
     const e = this.entities.get(entityKey);
     if (e) e.deleted = true;
+    this.save();
   }
 
   /** Test hook: emulate a patch attempt; enforces readonly like Arkiv. */
   async patchForTest(entityKey: string, set: Record<string, string | number>): Promise<void> {
+    this.reload();
     const e = this.live(entityKey);
     if (!e) throw new LedgerError(LEDGER_ERROR.notFound, `no entity ${entityKey}`);
     if (e.readOnly) throw new LedgerError(LEDGER_ERROR.readOnly, "readonly entity");
     Object.assign(e.attributes, set);
     e.updatedAt = NOW_BLOCK();
+    this.save();
   }
 
   async health(): Promise<{ ok: boolean; latencyMs: number }> {
     return { ok: true, latencyMs: 0 };
   }
 
-  /** Persist to a JSON file (payloads as base64). */
+  /** Persist to a JSON file (payloads as number arrays). Atomic tmp+rename. */
   persist(file: string): void {
+    this.file = file;
+    this.save();
+  }
+
+  private save(): void {
+    if (!this.file) return;
     const shape: PersistShape = {
       counter: this.counter,
       entities: [...this.entities.values()].map((e) => ({
@@ -215,7 +252,10 @@ export class MockAdapter implements LedgerAdapter {
         payload: Array.from(e.payload),
       })),
     };
-    writeFileSync(file, JSON.stringify(shape));
+    mkdirSync(dirname(this.file), { recursive: true });
+    const tmp = `${this.file}.tmp-${process.pid}`;
+    writeFileSync(tmp, JSON.stringify(shape));
+    renameSync(tmp, this.file);
   }
 
   static payloadHex(p: Uint8Array): string {

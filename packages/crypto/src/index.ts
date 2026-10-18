@@ -21,6 +21,9 @@ import { gcm } from "@noble/ciphers/aes.js";
 import { randomBytes } from "@noble/hashes/utils.js";
 import jcsCanonicalize from "canonicalize";
 
+export { toBase64, fromBase64 } from "./base64.js";
+export * from "./kdf.js";
+
 // ---------------------------------------------------------------------------
 // Measured sizes (constants file per spec.md section 2.2 note)
 // ---------------------------------------------------------------------------
@@ -142,9 +145,21 @@ export function wrapKey(ss: Uint8Array, gateShare: Uint8Array, docId: string): U
   return hkdf(sha256, ikm, enc.encode(docId), enc.encode("tv-wrap-v1"), SIZE.aesKey);
 }
 
-/** The all-zero gate share used when GATE_MODE=off. */
+/**
+ * The all-zero gate share used when GATE_MODE=off.
+ */
 export function zeroGateShare(): Uint8Array {
   return new Uint8Array(SIZE.aesKey);
+}
+
+/**
+ * Per-document watermark key K_wm (spec.md section 5.2). Never stored on the
+ * ledger (decision D-008): derived from the org's WM master, delivered to the
+ * recipient's browser only after its decryption record is committed, and
+ * re-derived by the investigator worker for extraction.
+ */
+export function wmKeyFor(docId: string, wmMaster: string): Uint8Array {
+  return hexToBytes(sha256Hex(enc.encode(`wmkey|${docId}|${wmMaster}`)));
 }
 
 /** Gate share = HKDF(gateMaster, salt=docId, info="gate|recipientId|keyVersion"). */
@@ -195,14 +210,6 @@ export function hexToBytes(h: string): Uint8Array {
   const out = new Uint8Array(h.length / 2);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
   return out;
-}
-
-export function toBase64(b: Uint8Array): string {
-  return Buffer.from(b).toString("base64");
-}
-
-export function fromBase64(s: string): Uint8Array {
-  return new Uint8Array(Buffer.from(s, "base64"));
 }
 
 export function randomBytes_(n: number): Uint8Array {

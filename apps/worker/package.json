@@ -1,0 +1,30 @@
+{
+  "name": "arctrace-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@arctrace/crypto": "workspace:*",
+    "@arctrace/ledger": "workspace:*",
+    "@arctrace/shared": "workspace:*",
+    "@arctrace/watermark": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@napi-rs/canvas": "^1.0.11",
+    "arctrace-api": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "jpeg-js": "^0.4.4",
+    "pdfjs-dist": "^6.4.299",
+    "pngjs": "^7.0.0",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pngjs": "^6.0.5",
+    "tsx": "^4.19.2"
+  }
+}
