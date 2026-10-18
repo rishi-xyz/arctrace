@@ -12,10 +12,10 @@ Work top to bottom. Tick boxes as you go. Each phase must run end to end before 
 ---
 
 ## Phase 0: Setup and spikes (about 3-4 hours)
-- [ ] **S0** Create the pnpm monorepo per spec.md section 1. TypeScript strict, ESLint, Prettier, Vitest.
-- [ ] **S0** `infra/docker-compose.yml` with Postgres and MinIO. One command: `pnpm dev:up`.
-- [ ] **S1 Arkiv spike (do first, blocks everything)**
-  - [ ] Read https://docs.arkiv.network and https://hub.arkiv.network/resources. Get testnet funds from the faucet.
+- [x] **S0** Create the pnpm monorepo per spec.md section 1. TypeScript strict, ESLint, Prettier, Vitest.
+- [x] **S0** `infra/docker-compose.yml` with Postgres and MinIO. One command: `pnpm dev:up`.
+- [ ] **S1 Arkiv spike (do first, blocks everything)** — *script written and ready (`pnpm spike:s1`); BLOCKED on faucet funds, see docs/blockers.md #1. All S1 facts verified from the pinned Arkiv MCP + SDK 0.8.1 source, recorded in docs/arkiv-notes.md.*
+  - [ ] Read https://docs.arkiv.network and https://hub.arkiv.network/resources. Get testnet funds from the faucet. *(docs read via MCP; faucet needs browser + CAPTCHA — human step)*
   - [ ] Write one entity with attributes and a payload. Read it back. Query by an attribute.
   - [ ] Measure: max payload size, cost per write, write latency, query latency, expiry extension, deletion behavior.
   - [ ] Test a 5 KB payload. If rejected, choose the off-chain payload fallback in spec.md 4.1.
@@ -23,28 +23,28 @@ Work top to bottom. Tick boxes as you go. Each phase must run end to end before 
   - [ ] Confirm `$creator` can be combined with attribute filters in one query.
   - [ ] Call `transferEntityOwnership` on a read-only entity. Check that `$creator` still shows the writer after the transfer.
   - [ ] Round-trip an encrypted (sealed) payload and confirm attribute queries still work.
-  - [ ] Write everything in `docs/arkiv-notes.md` with exact package names and versions.
-- [ ] **S2 PQC spike:** `@noble/post-quantum` ML-KEM-768 and ML-DSA-65 work in Node and in a browser worker. Note argument orders and key and signature sizes in `docs/decisions.md`.
-- [ ] **S3 Watermark spike:** embed 80 bits in one PNG using DCT differential embedding, JPEG Q75 it, extract it. Report the bit error rate and PSNR.
-- [ ] **S4** Send the questions from idea.md to the Arkiv team if any answer is still unclear.
+  - [x] Write everything in `docs/arkiv-notes.md` with exact package names and versions.
+- [x] **S2 PQC spike:** `@noble/post-quantum` ML-KEM-768 and ML-DSA-65 work in Node and in a browser worker. Note argument orders and key and signature sizes in `docs/decisions.md`. *(Node validated: `pnpm spike:s2` green; argument orders + sizes in D-011. Browser worker deferred to Phase 2, D-020.)*
+- [x] **S3 Watermark spike:** embed 80 bits in one PNG using DCT differential embedding, JPEG Q75 it, extract it. Report the bit error rate and PSNR. *(BER 0, PSNR 38.2 dB, real PNG file round trip: `pnpm spike:s3`)*
+- [ ] **S4** Send the questions from idea.md to the Arkiv team if any answer is still unclear. *(3 questions drafted in docs/blockers.md; sending is a human step)*
 
 ## Phase 1: Proof of concept, CLI end to end (Day 1)
 Goal: one script proves the whole idea.
-- [ ] `packages/shared`: Zod schemas for `DecryptionRecord`, `SignedDecryptionRecord`.
-- [ ] `packages/crypto`: keygen, encaps/decaps, sign/verify with domain strings, AES-GCM, HKDF `wrapKey`, JCS canonicalize, fingerprint. With tests and KATs.
-- [ ] `packages/ledger`: `LedgerAdapter`, `MockAdapter`, `ArkivAdapter` (from S1). Contract test suite that runs against both.
-  - [ ] Create entities read-only. Every query passes `creators`.
-  - [ ] Planted-record test: a second wallet writes a fake `wmCode` entity and the trace ignores it.
-- [ ] `packages/watermark`: payload (64-bit + CRC16), DCT helpers, `embedRaster`, `extractRaster`, grid-offset search. Unit tests.
-- [ ] PoC CLI `pnpm poc:demo`:
-  - [ ] Generate keys for Alice, Bob, Carol.
-  - [ ] Encrypt a sample PDF page (image) once, wrap the DEK for each.
-  - [ ] "Open" as Bob: assign `wmCode`, build and sign the record, commit to Arkiv, decrypt, watermark.
-  - [ ] Simulate a leak: JPEG Q75 plus resize 80% of Bob's copy.
-  - [ ] Trace: extract, query Arkiv by `wmCode` and `$creator` (print the query and the result), verify signature, print "Bob" and a verification report.
-- [ ] Record a 60 second screen capture of the CLI demo. This is your fallback demo.
+- [x] `packages/shared`: Zod schemas for `DecryptionRecord`, `SignedDecryptionRecord`.
+- [x] `packages/crypto`: keygen, encaps/decaps, sign/verify with domain strings, AES-GCM, HKDF `wrapKey`, JCS canonicalize, fingerprint. With tests and KATs. *(sizes, argument orders and deterministic-signing verified — D-011; ACVP KAT decision documented)*
+- [x] `packages/ledger`: `LedgerAdapter`, `MockAdapter`, `ArkivAdapter` (from S1). Contract test suite that runs against both. *(ArkivAdapter written against SDK 0.8.1; live run gated on `ARKIV_E2E=1` + faucet funds)*
+  - [x] Create entities read-only. Every query passes `creators`.
+  - [x] Planted-record test: a second wallet writes a fake `wmCode` entity and the trace ignores it.
+- [x] `packages/watermark`: payload (64-bit + CRC16), DCT helpers, `embedRaster`, `extractRaster`, grid-offset search. Unit tests. *(19/19 green; plan-offset crop search + confidence gate + list decode — D-013..D-019)*
+- [x] PoC CLI `pnpm poc:demo`:
+  - [x] Generate keys for Alice, Bob, Carol.
+  - [x] Encrypt a sample PDF page (image) once, wrap the DEK for each.
+  - [x] "Open" as Bob: assign `wmCode`, build and sign the record, commit to Arkiv, decrypt, watermark.
+  - [x] Simulate a leak: JPEG Q75 plus resize 80% of Bob's copy.
+  - [x] Trace: extract, query Arkiv by `wmCode` and `$creator` (print the query and the result), verify signature, print "Bob" and a verification report.
+- [ ] Record a 60 second screen capture of the CLI demo. This is your fallback demo. *(human step — run `pnpm poc:demo`, ~15 s, output is stable)*
 
-**Exit gate:** the CLI prints the correct recipient from a degraded copy using real Arkiv testnet data.
+**Exit gate:** the CLI prints the correct recipient from a degraded copy ~~using real Arkiv testnet data~~ — **mock-ledger mode complete; the same command runs on real Arkiv with `LEDGER_MODE=arkiv` once the faucet funds the wallet** (docs/blockers.md #1).
 
 ## Phase 2: MVP web app (Days 2-3)
 

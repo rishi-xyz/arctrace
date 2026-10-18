@@ -1,0 +1,22 @@
+{
+  "name": "@arctrace/poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "tsx demo.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@arctrace/crypto": "workspace:*",
+    "@arctrace/ledger": "workspace:*",
+    "@arctrace/shared": "workspace:*",
+    "@arctrace/watermark": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.19.2"
+  }
+}

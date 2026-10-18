@@ -1,0 +1,19 @@
+{
+  "name": "@arctrace/crypto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@arctrace/shared": "workspace:*",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@noble/post-quantum": "^0.7.1",
+    "canonicalize": "^5.1.0"
+  }
+}

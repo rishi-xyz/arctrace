@@ -1,0 +1,17 @@
+{
+  "name": "@arctrace/watermark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@arctrace/shared": "workspace:*",
+    "@noble/hashes": "^2.4.0",
+    "jpeg-js": "^0.4.4"
+  }
+}

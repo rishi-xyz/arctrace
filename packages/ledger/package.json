@@ -1,0 +1,19 @@
+{
+  "name": "@arctrace/ledger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@arctrace/crypto": "workspace:*",
+    "@arctrace/shared": "workspace:*",
+    "@arkiv-network/sdk": "0.8.1",
+    "@noble/hashes": "^2.0.0",
+    "viem": "^2.38.2"
+  }
+}

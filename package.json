@@ -1,0 +1,45 @@
+{
+  "name": "arctrace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ArcTrace: per-open invisible watermarks + post-quantum signatures + Arkiv tamper-evident records to trace document leaks",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "poc:demo": "tsx apps/poc/demo.ts",
+    "spike:s1": "tsx scripts/spike-s1-arkiv.ts",
+    "spike:s2": "tsx scripts/spike-s2-pqc.ts",
+    "spike:s3": "tsx scripts/spike-s3-watermark.ts",
+    "gen:wallet": "tsx scripts/gen-wallet.ts",
+    "dev:up": "docker compose -f infra/docker-compose.yml up -d",
+    "dev:down": "docker compose -f infra/docker-compose.yml down"
+  },
+  "dependencies": {
+    "@arctrace/crypto": "workspace:*",
+    "@arctrace/ledger": "workspace:*",
+    "@arctrace/shared": "workspace:*",
+    "@arctrace/watermark": "workspace:*",
+    "@arkiv-network/sdk": "0.8.1",
+    "pngjs": "^7.0.0",
+    "viem": "^2.38.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.10.2",
+    "@types/pngjs": "^6.0.5",
+    "eslint": "^9.0.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.8"
+  }
+}
