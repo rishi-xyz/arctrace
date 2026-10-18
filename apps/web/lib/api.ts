@@ -3,7 +3,8 @@ let csrfToken = '';
 
 export type SessionUser = {
   id: string;
-  email: string;
+  email: string | null;
+  walletAddress: string | null;
   displayName: string;
   role: 'sender' | 'recipient' | 'investigator' | 'admin';
   orgId: string;
@@ -30,6 +31,15 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
 export async function establishSession(path: '/auth/login' | '/auth/register', body: unknown) {
   const response = await api<{ user: SessionUser; csrfToken: string }>(path, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  csrfToken = response.csrfToken;
+  return response.user;
+}
+
+export async function establishWalletSession(body: unknown) {
+  const response = await api<{ user: SessionUser; csrfToken: string }>('/auth/wallet/verify', {
     method: 'POST',
     body: JSON.stringify(body),
   });

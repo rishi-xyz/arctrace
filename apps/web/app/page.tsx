@@ -12,7 +12,7 @@ export default function Home() {
   return <main className="overflow-hidden bg-paper">
     <header className="relative z-10 mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 md:px-8">
       <Link href="/" className="flex items-center gap-2.5" aria-label="ArcTrace home"><span className="grid h-9 w-9 place-items-center rounded-[11px] bg-ink text-white"><ShieldCheck size={19} /></span><span className="text-[18px] font-semibold tracking-[-.05em]">arctrace<span className="text-moss">.</span></span></Link>
-      <nav className="hidden items-center gap-8 text-sm text-[#65736b] md:flex"><a href="#how-it-works" className="hover:text-ink">How it works</a><a href="#security" className="hover:text-ink">Security</a></nav>
+      <nav className="hidden items-center gap-8 text-sm text-[#65736b] md:flex"><a href="#how-it-works" className="hover:text-ink">How it works</a><a href="#security" className="hover:text-ink">Security</a><Link href="/demo" className="hover:text-ink">Try sample</Link></nav>
       <div className="flex items-center gap-2"><Button asChild variant="ghost" className="hidden sm:inline-flex"><Link href="/auth">Sign in</Link></Button><Button asChild><Link href="/auth?mode=register">Get started <ArrowRight size={15} /></Link></Button></div>
     </header>
 

@@ -4,6 +4,7 @@ import { embedText } from '@arctrace/watermark';
 import { PDFDocument } from 'pdf-lib';
 import { api } from './api';
 import { unlockPrivateKeys } from './keys';
+import { loadDocumentNames, saveDocumentName } from './document-names';
 
 type OpenCommit = { keyWm: string; entityKey: string; gateMode: 'on' | 'off' };
 
@@ -44,6 +45,11 @@ export async function commitAndOpen(docId: string, user: SessionUser, passphrase
   const nameBytes = aesGcmDecrypt(documentDek, fromBase64(detail.titleEnc.nonce), fromBase64(detail.titleEnc.ct), new TextEncoder().encode(`title|${docId}`));
   const name = new TextDecoder().decode(nameBytes);
   nameBytes.fill(0);
+  let cachedNames: Record<string, string> = {};
+  try {
+    await saveDocumentName(user.id, docId, name, localKeys.vaultKey);
+    cachedNames = await loadDocumentNames(user.id, localKeys.vaultKey);
+  } catch { /* local cache is optional; title remains encrypted on the server */ }
   const extension = name.split('.').pop()?.toLowerCase();
   if (!['png', 'jpg', 'jpeg', 'txt', 'pdf'].includes(extension ?? '')) throw new Error('This file type is not supported in the secure viewer.');
 
@@ -91,11 +97,11 @@ export async function commitAndOpen(docId: string, user: SessionUser, passphrase
     context.putImageData(marked, 0, 0);
     blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Could not export the watermarked image.')), 'image/png'));
   }
-  return { url: URL.createObjectURL(blob), name, entityKey: committed.entityKey, gateMode: committed.gateMode };
+  return { url: URL.createObjectURL(blob), name, names: cachedNames, entityKey: committed.entityKey, gateMode: committed.gateMode };
   } finally {
     // PDF.js may transfer the input buffer to its worker. Keep cleanup best-effort
     // so an already detached buffer cannot replace the real open result/error.
-    zeroBytes(plaintext); zeroBytes(dek); zeroBytes(localKeys.kemSk); zeroBytes(localKeys.sigSk);
+    zeroBytes(plaintext); zeroBytes(dek); zeroBytes(localKeys.kemSk); zeroBytes(localKeys.sigSk); zeroBytes(localKeys.vaultKey);
   }
 }
 
@@ -106,7 +112,7 @@ function zeroBytes(bytes?: Uint8Array) {
   } catch { /* buffers transferred to a worker are already inaccessible */ }
 }
 
-async function watermarkPdf(bytes: Uint8Array, wmCode: string, keyWm: Uint8Array): Promise<Blob> {
+export async function watermarkPdf(bytes: Uint8Array, wmCode: string, keyWm: Uint8Array): Promise<Blob> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
   // pdf.js transfers typed-array inputs to its worker, which would detach the

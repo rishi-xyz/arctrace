@@ -31,12 +31,13 @@ export async function activeKeys(db: Database, userId: string) {
 
 export async function sessionUser(
   db: Database,
-  user: { id: string; email: string; displayName: string; role: string; orgId: string; createdAt: Date },
+  user: { id: string; email: string | null; walletAddress?: string | null; displayName: string; role: string; orgId: string; createdAt: Date },
 ): Promise<SessionUser> {
   const keys = await activeKeys(db, user.id);
   return {
     id: user.id,
     email: user.email,
+    walletAddress: user.walletAddress ?? null,
     displayName: user.displayName,
     role: user.role as Role,
     orgId: user.orgId,

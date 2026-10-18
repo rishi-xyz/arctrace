@@ -11,7 +11,8 @@ const hashToken = (token: string): string =>
 
 export interface AuthedUser {
   id: string;
-  email: string;
+  email: string | null;
+  walletAddress: string | null;
   displayName: string;
   role: string;
   orgId: string;
@@ -65,6 +66,7 @@ export async function loadSession(opts: LoadSessionOpts): Promise<AuthedUser | n
       expiresAt: sessions.expiresAt,
       userId: users.id,
       email: users.email,
+      walletAddress: users.walletAddress,
       displayName: users.displayName,
       role: users.role,
       orgId: users.orgId,
@@ -89,6 +91,7 @@ export async function loadSession(opts: LoadSessionOpts): Promise<AuthedUser | n
   return {
     id: row.userId,
     email: row.email,
+    walletAddress: row.walletAddress,
     displayName: row.displayName,
     role: row.role,
     orgId: row.orgId,

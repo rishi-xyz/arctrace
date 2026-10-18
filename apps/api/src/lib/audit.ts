@@ -5,6 +5,8 @@ import { auditLocal } from '../db/schema.js';
 export type AuditAction =
   | 'user.register'
   | 'user.login'
+  | 'user.wallet_register'
+  | 'user.wallet_login'
   | 'user.logout'
   | 'key.generate'
   | 'key.revoke'

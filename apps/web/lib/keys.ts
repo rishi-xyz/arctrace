@@ -6,8 +6,11 @@ type StoredKey = { userId: string; salt: Uint8Array; nonce: Uint8Array; encrypte
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('arctrace-v1', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('keys', { keyPath: 'userId' });
+    const request = indexedDB.open('arctrace-v1', 2);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains('keys')) request.result.createObjectStore('keys', { keyPath: 'userId' });
+      if (!request.result.objectStoreNames.contains('documentNames')) request.result.createObjectStore('documentNames', { keyPath: 'id' });
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
@@ -82,6 +85,7 @@ export async function unlockPrivateKeys(userId: string, passphrase: string) {
   const bytes = new Uint8Array(plaintext);
   const kemSk = bytes.slice(0, SIZE.kemSk);
   const sigSk = bytes.slice(SIZE.kemSk, SIZE.kemSk + SIZE.dsaSk);
+  const vaultKey = derived.slice();
   bytes.fill(0); derived.fill(0);
-  return { kemSk, sigSk, kemFp: record.kemFp, sigFp: record.sigFp };
+  return { kemSk, sigSk, kemFp: record.kemFp, sigFp: record.sigFp, vaultKey };
 }

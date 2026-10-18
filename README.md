@@ -61,6 +61,16 @@ and commits the recipient's signed open before releasing plaintext. Investigate
 accepts leak uploads; keep the worker running to process them. Manual testing is
 the Phase 2 acceptance path; no Playwright suite is included.
 
+### Cloudflare R2
+
+The API uses the AWS S3 SDK and supports R2's S3-compatible endpoint. Create the
+bucket first, then set `S3_ENDPOINT` to
+`https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, `S3_REGION=auto`, and the R2
+bucket and API token credentials in `.env`. Set `ARCTRACE_S3_PROXY_URL` to the
+same endpoint for the Next.js same-origin object proxy. Keep the R2 token
+server-side; ArcTrace continues to upload encrypted objects through short-lived
+presigned URLs.
+
 Download the signed evidence ZIP from an investigation result, then verify it:
 
 ```bash

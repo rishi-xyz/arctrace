@@ -13,7 +13,7 @@ import {
 } from '@arctrace/shared';
 import { z } from 'zod';
 import { canonicalize, fromBase64, sha256Hex, verify } from '@arctrace/crypto';
-import { documents, grants, ledgerOutbox, userKeys, users } from '../db/schema.js';
+import { documents, grants, ledgerOutbox, openSessions, userKeys, users } from '../db/schema.js';
 import { writeAudit } from '../lib/audit.js';
 import { requireUser } from '../lib/auth.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
@@ -102,6 +102,42 @@ export async function documentRoutes(app: RouteApp, ctx: Ctx): Promise<void> {
       )
       .orderBy(desc(documents.createdAt));
     return Promise.all(rows.map((r) => documentSummary(db, r.doc, user)));
+  });
+
+  /** Committed opens visible to the sender, org admins, and each recipient's own history. */
+  app.get('/activity', { onRequest: app.authenticate }, async (req) => {
+    const user = requireUser(req);
+    const scope = user.role === 'admin'
+      ? eq(documents.orgId, user.orgId)
+      : and(
+          eq(documents.orgId, user.orgId),
+          or(eq(documents.senderId, user.id), eq(openSessions.recipientId, user.id)),
+        );
+    const rows = await db
+      .select({
+        id: openSessions.id,
+        documentId: openSessions.docId,
+        recipientId: openSessions.recipientId,
+        recipientName: users.displayName,
+        committedAt: openSessions.committedAt,
+        entityKey: openSessions.ledgerEntityKey,
+        senderId: documents.senderId,
+      })
+      .from(openSessions)
+      .innerJoin(documents, eq(documents.id, openSessions.docId))
+      .innerJoin(users, eq(users.id, openSessions.recipientId))
+      .where(and(scope, eq(openSessions.status, 'committed'), isNotNull(openSessions.committedAt)))
+      .orderBy(desc(openSessions.committedAt))
+      .limit(200);
+    return rows.map((row) => ({
+      id: row.id,
+      documentId: row.documentId,
+      recipientId: row.recipientId,
+      recipientName: row.recipientName,
+      openedAt: row.committedAt!.toISOString(),
+      entityKey: row.entityKey,
+      openedByMe: row.recipientId === user.id,
+    }));
   });
 
   app.get<{ Params: { id: string } }>(

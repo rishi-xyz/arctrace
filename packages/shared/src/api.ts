@@ -60,7 +60,8 @@ export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export const SessionUserSchema = z
   .object({
     id: z.string().uuid(),
-    email: z.string(),
+    email: z.string().nullable(),
+    walletAddress: z.string().nullable(),
     displayName: z.string(),
     role: z.enum(ROLES),
     orgId: z.string().uuid(),

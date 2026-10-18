@@ -2,8 +2,9 @@ import { DOMAIN, type SessionUser, type PublicKey } from '@arctrace/shared';
 import { aesGcmEncrypt, canonicalize, fromBase64, kemEncapsulate, randomBytes, sha256Hex, sign, toBase64, wrapKey, zeroGateShare } from '@arctrace/crypto';
 import { api } from './api';
 import { unlockPrivateKeys } from './keys';
+import { loadDocumentNames, saveDocumentName } from './document-names';
 
-export async function shareDocument(file: File, recipientIds: string[], passphrase: string, user: SessionUser) {
+export async function shareDocument(file: File, documentName: string, recipientIds: string[], passphrase: string, user: SessionUser) {
   if (recipientIds.length === 0) throw new Error('Choose at least one recipient.');
   if (!user.hasKeys) throw new Error('Set up your post-quantum keys before sharing.');
   const privateKeys = await unlockPrivateKeys(user.id, passphrase);
@@ -32,7 +33,8 @@ export async function shareDocument(file: File, recipientIds: string[], passphra
   ciphertext.set(encryptedFile.nonce);
   ciphertext.set(encryptedFile.ct, encryptedFile.nonce.length);
   plain.fill(0);
-  const title = aesGcmEncrypt(documentDek, new TextEncoder().encode(file.name), new TextEncoder().encode(`title|${docId}`));
+  const titleText = documentName.trim() || file.name;
+  const title = aesGcmEncrypt(documentDek, new TextEncoder().encode(titleText), new TextEncoder().encode(`title|${docId}`));
 
   const upload = await fetch(slot.uploadPath, {
     method: 'PUT',
@@ -82,9 +84,16 @@ export async function shareDocument(file: File, recipientIds: string[], passphra
       method: 'POST',
       body: JSON.stringify({ titleEnc: { alg: 'AES-256-GCM', nonce: toBase64(title.nonce), ct: toBase64(title.ct) }, manifest, senderSig, grants }),
     });
+    let names: Record<string, string> = {};
+    try {
+      await saveDocumentName(user.id, docId, titleText, privateKeys.vaultKey);
+      names = await loadDocumentNames(user.id, privateKeys.vaultKey);
+    } catch { /* local cache is optional; the encrypted server title remains available */ }
+    return { docId, title: titleText, names };
   } finally {
     dek?.fill(0);
     privateKeys.kemSk.fill(0);
     privateKeys.sigSk.fill(0);
+    privateKeys.vaultKey.fill(0);
   }
 }

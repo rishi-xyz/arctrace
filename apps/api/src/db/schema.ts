@@ -30,13 +30,27 @@ export const users = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => orgs.id),
-    email: text("email").notNull(),
-    pwHash: text("pw_hash").notNull(),
+    email: text("email"),
+    pwHash: text("pw_hash"),
+    walletAddress: text("wallet_address"),
     role: text("role").notNull(),
     displayName: text("display_name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_unique").on(t.email)],
+  (t) => [uniqueIndex("users_email_unique").on(t.email), uniqueIndex("users_wallet_address_unique").on(t.walletAddress)],
+);
+
+export const walletChallenges = pgTable(
+  "wallet_challenges",
+  {
+    nonce: text("nonce").primaryKey(),
+    address: text("address").notNull(),
+    domain: text("domain").notNull(),
+    uri: text("uri").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("wallet_challenges_address_idx").on(t.address), index("wallet_challenges_expiry_idx").on(t.expiresAt)],
 );
 
 export const sessions = pgTable(

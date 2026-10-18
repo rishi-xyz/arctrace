@@ -6,15 +6,18 @@ import { useRouter } from 'next/navigation';
 import { Activity, ArrowDownToLine, ArrowUpRight, Check, CircleHelp, FileLock2, FileSearch, FileText, KeyRound, LoaderCircle, LockKeyhole, LogOut, Plus, Search, ShieldCheck, Upload, Users, X } from 'lucide-react';
 import { Badge, Button, Card, Input } from './ui';
 import { api, establishSession, forgetCsrf, restoreSession, type SessionUser } from '../lib/api';
+import { signInWithWallet } from '../lib/wallet';
 
-type Section = 'overview' | 'documents' | 'inbox' | 'investigate' | 'settings';
+type Section = 'overview' | 'documents' | 'inbox' | 'activity' | 'investigate' | 'settings';
 type Doc = { id: string; title?: string; status: string; viewMode: string; createdAt: string; senderName?: string; recipientCount?: number };
 type Ledger = { mode: string; ok: boolean; latencyMs: number; explorerUrl: string; gateMode: string };
+type ActivityEntry = { id: string; documentId: string; recipientId: string; recipientName: string; openedAt: string; entityKey: string | null; openedByMe: boolean };
 
 const sections: { id: Section; label: string; icon: typeof FileText }[] = [
   { id: 'overview', label: 'Overview', icon: Activity },
   { id: 'documents', label: 'Shared documents', icon: FileText },
   { id: 'inbox', label: 'Your inbox', icon: LockKeyhole },
+  { id: 'activity', label: 'Open activity', icon: Activity },
   { id: 'investigate', label: 'Investigations', icon: FileSearch },
 ];
 
@@ -26,6 +29,7 @@ export function Workspace() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [openDoc, setOpenDoc] = useState<Doc | null>(null);
@@ -41,6 +45,10 @@ export function Workspace() {
     api<Doc[]>('/documents').then(setDocs).catch((e) => setError(e.message));
     api<Ledger>('/ledger/status').then(setLedger).catch(() => setLedger(null));
   }, [user]);
+  useEffect(() => {
+    if (section !== 'activity') return;
+    api<ActivityEntry[]>('/activity').then(setActivity).catch((e) => setError(e.message));
+  }, [section]);
 
   const greeting = useMemo(() => user?.displayName.split(' ')[0] ?? '', [user]);
   const signOut = async () => {
@@ -88,12 +96,13 @@ export function Workspace() {
           {section === 'overview' && <Overview greeting={greeting} user={user} docs={myDocs} onNavigate={setSection} ledger={ledger} />}
           {section === 'documents' && <DocumentList docs={myDocs} onNew={() => setShowUpload(true)} />}
           {section === 'inbox' && <Inbox docs={inbox} onOpen={setOpenDoc} />}
+          {section === 'activity' && <OpenActivity entries={activity} isAdmin={user.role === 'admin'} explorerUrl={ledger?.explorerUrl} />}
           {section === 'investigate' && <Investigate user={user} setNotice={setNotice} setError={setError} />}
           {section === 'settings' && <Settings user={user} />}
         </div>
       </main>
-      {showUpload && <UploadDialog user={user} onClose={() => setShowUpload(false)} onCreated={() => { setShowUpload(false); void api<Doc[]>('/documents').then(setDocs); setNotice('Document encrypted and shared. Ledger records are being committed.'); }} />}
-      {openDoc && <OpenDialog doc={openDoc} user={user} explorerUrl={ledger?.explorerUrl} onClose={() => setOpenDoc(null)} />}
+      {showUpload && <UploadDialog user={user} onClose={() => setShowUpload(false)} onCreated={(created) => { setShowUpload(false); void api<Doc[]>('/documents').then((rows) => setDocs(rows.map((doc) => created.names[doc.id] ? { ...doc, title: created.names[doc.id] } : doc))); setNotice('Document encrypted and shared. Ledger records are being committed.'); }} />}
+      {openDoc && <OpenDialog doc={openDoc} user={user} explorerUrl={ledger?.explorerUrl} onClose={() => setOpenDoc(null)} onNamesKnown={(names) => setDocs((rows) => rows.map((doc) => names[doc.id] ? { ...doc, title: names[doc.id] } : doc))} />}
     </div>
   );
 }
@@ -104,6 +113,17 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 export function AuthScreen({ mode, setMode, onSignedIn, error, setError }: { mode: 'login' | 'register'; setMode: (m: 'login' | 'register') => void; onSignedIn: (u: SessionUser) => void; error: string; setError: (e: string) => void }) {
   const [busy, setBusy] = useState(false);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletName, setWalletName] = useState('');
+  const [walletRole, setWalletRole] = useState<'sender' | 'recipient' | 'investigator'>('sender');
+  const connectWallet = async () => {
+    setWalletBusy(true); setError('');
+    try {
+      const user = await signInWithWallet(walletName.trim() || 'Wallet member', walletRole, mode === 'register');
+      onSignedIn(user);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Wallet sign-in failed'); }
+    finally { setWalletBusy(false); }
+  };
   const submit = async (form: FormData) => {
     setBusy(true); setError('');
     try {
@@ -135,6 +155,10 @@ export function AuthScreen({ mode, setMode, onSignedIn, error, setError }: { mod
           {error && <div role="alert" className="rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</div>}
           <Button type="submit" disabled={busy} className="mt-2 w-full">{busy ? <LoaderCircle size={16} className="animate-spin" /> : null}{mode === 'login' ? 'Sign in' : 'Create account'}</Button>
         </form>
+        <div className="my-6 flex items-center gap-3 text-[10px] uppercase tracking-[.12em] text-[#a0aaa2]"><span className="h-px flex-1 bg-line" />or use a wallet<span className="h-px flex-1 bg-line" /></div>
+        {mode === 'register' && <div className="mb-3 grid gap-3 sm:grid-cols-2"><Input value={walletName} onChange={(e) => setWalletName(e.target.value)} maxLength={80} placeholder="Display name" aria-label="Wallet account display name" /><select value={walletRole} onChange={(e) => setWalletRole(e.target.value as typeof walletRole)} aria-label="Wallet account role" className="h-11 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-moss"><option value="sender">Sender</option><option value="recipient">Recipient</option><option value="investigator">Investigator</option></select></div>}
+        <Button type="button" variant="outline" disabled={walletBusy || (mode === 'register' && !walletName.trim())} onClick={() => void connectWallet()} className="w-full">{walletBusy ? <LoaderCircle size={16} className="animate-spin" /> : <ShieldCheck size={16} />} {mode === 'login' ? 'Sign in with Ethereum wallet' : 'Create account with wallet'}</Button>
+        <p className="mt-2 text-center text-[11px] leading-5 text-[#89938c]">Uses a wallet message signature on Tiramisu. No transaction or GLM is required. Your ArcTrace key passphrase is still used for document keys.</p>
         <p className="mt-6 text-center text-sm text-[#748078]">{mode === 'login' ? 'New to ArcTrace?' : 'Already have an account?'} <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }} className="font-medium text-moss hover:underline">{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
         <p className="mt-10 text-center text-[11px] leading-5 text-[#929c95]">By continuing, you agree to use this demo for non-sensitive files only. This testnet workspace is intended for manual evaluation.</p>
       </div>
@@ -177,7 +201,15 @@ function Inbox({ docs, onOpen }: { docs: Doc[]; onOpen: (doc: Doc) => void }) {
   return <><PageHeading eyebrow="For you" title="Your inbox" description="Documents shared with you by your organisation." /><Card className="mt-7 overflow-hidden">{docs.length ? docs.map((doc) => <div key={doc.id} className="flex items-center gap-3 border-b border-line px-5 py-3.5 last:border-0"><div className="grid h-9 w-9 place-items-center rounded-lg bg-paper text-[#78867d]"><FileText size={17} /></div><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{doc.title || 'Encrypted document'}</div><div className="mt-1 text-xs text-[#89938c]">From {doc.senderName} · {new Date(doc.createdAt).toLocaleDateString()}</div></div><Badge tone="green">Ready</Badge><Button size="sm" onClick={() => onOpen(doc)}><LockKeyhole size={14} />Open</Button></div>) : <div className="py-16 text-center"><LockKeyhole className="mx-auto text-[#9ba69e]" size={25} /><div className="mt-3 text-sm font-medium">Your inbox is clear</div><p className="mt-1 text-xs text-[#89938c]">When someone shares a document with you, it will appear here.</p></div>}</Card></>;
 }
 
-function OpenDialog({ doc, user, explorerUrl, onClose }: { doc: Doc; user: SessionUser; explorerUrl?: string; onClose: () => void }) {
+function OpenActivity({ entries, isAdmin, explorerUrl }: { entries: ActivityEntry[]; isAdmin: boolean; explorerUrl?: string }) {
+  return <><PageHeading eyebrow="Audit trail" title="Recorded opens" description={isAdmin ? 'Committed open records across your organisation.' : 'Committed open records for documents you shared, plus your own opens.'} />
+    <Card className="mt-7 overflow-hidden"><div className="border-b border-line bg-[#fbfcf9] px-5 py-3 text-xs leading-5 text-[#748078]">An entry means the signed open record was committed before the watermarked file was released. It does not confirm the recipient finished reading the file.</div>
+      {entries.length ? entries.map((entry) => <div key={entry.id} className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4 last:border-0"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#edf3ed] text-moss"><Activity size={16} /></div><div className="min-w-0 flex-1"><div className="text-sm font-medium">{entry.openedByMe ? 'You opened a protected document' : `${entry.recipientName} opened a protected document`}</div><div className="mt-1 text-xs text-[#89938c]">Document {entry.documentId.slice(0, 8)} · {new Date(entry.openedAt).toLocaleString()}</div></div><Badge tone="green">Record committed</Badge>{entry.entityKey && explorerUrl && <a href={`${explorerUrl.replace(/\/$/, '')}/entity/${entry.entityKey}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-moss hover:underline">Arkiv record <ArrowUpRight size={12} className="inline" /></a>}</div>) : <div className="py-16 text-center"><Activity className="mx-auto text-[#9ba69e]" size={24} /><div className="mt-3 text-sm font-medium">No committed opens yet</div><p className="mt-1 text-xs text-[#89938c]">When a recipient opens a document, its verified record will appear here.</p></div>}
+    </Card>
+  </>;
+}
+
+function OpenDialog({ doc, user, explorerUrl, onClose, onNamesKnown }: { doc: Doc; user: SessionUser; explorerUrl?: string; onClose: () => void; onNamesKnown: (names: Record<string, string>) => void }) {
   const [passphrase, setPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -190,6 +222,7 @@ function OpenDialog({ doc, user, explorerUrl, onClose }: { doc: Doc; user: Sessi
       const { commitAndOpen } = await import('../lib/open');
       const result = await commitAndOpen(doc.id, user, passphrase);
       setPassphrase('');
+      onNamesKnown(result.names);
       setOpened(result);
       if (result.name.toLowerCase().endsWith('.txt')) setText(await (await fetch(result.url)).text());
     } catch (e) { setError(e instanceof Error ? e.message : 'Document could not be opened'); }
@@ -260,7 +293,7 @@ function Investigate({ user, setNotice, setError }: { user: SessionUser; setNoti
         const zipBuffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
         const url = URL.createObjectURL(new Blob([zipBuffer], { type: 'application/zip' }));
         const a = document.createElement('a'); a.href = url; a.download = `arctrace-evidence-${traceId}.zip`; a.click(); URL.revokeObjectURL(url);
-      } finally { privateKeys.kemSk.fill(0); privateKeys.sigSk.fill(0); }
+      } finally { privateKeys.kemSk.fill(0); privateKeys.sigSk.fill(0); privateKeys.vaultKey.fill(0); }
     } catch (e) { setError(e instanceof Error ? e.message : 'Evidence download failed'); }
     finally { setBundleBusy(false); }
   };
@@ -282,11 +315,12 @@ function Settings({ user }: { user: SessionUser }) {
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Key setup failed'); }
     finally { setWorking(false); }
   };
-  return <><PageHeading eyebrow="Account" title="Members & keys" description="Manage your identity and cryptographic keys for this workspace." /><div className="mt-7 grid gap-5 xl:grid-cols-2"><Card className="p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-paper text-[#75847a]"><Users size={18} /></div><div><h2 className="text-sm font-semibold">Your profile</h2><p className="mt-1 text-xs text-[#89938c]">Workspace identity</p></div></div><div className="mt-5 space-y-3 border-t border-line pt-4 text-sm"><div className="flex justify-between"><span className="text-[#89938c]">Name</span><span>{user.displayName}</span></div><div className="flex justify-between"><span className="text-[#89938c]">Email</span><span>{user.email}</span></div><div className="flex justify-between"><span className="text-[#89938c]">Role</span><span className="capitalize">{user.role}</span></div></div></Card><Card className="p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf3ed] text-moss"><KeyRound size={18} /></div><div><h2 className="text-sm font-semibold">Post-quantum identity</h2><p className="mt-1 text-xs text-[#89938c]">ML-KEM-768 + ML-DSA-65</p></div><Badge tone={user.hasKeys ? 'green' : 'amber'}>{user.hasKeys ? 'Registered' : 'Not set up'}</Badge></div><p className="mt-4 text-xs leading-5 text-[#748078]">Your private keys are generated in this browser and encrypted with your passphrase before they are saved locally. Only public keys are sent to ArcTrace.</p>{!user.hasKeys && <div className="mt-4 space-y-3"><Input type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Create a private key passphrase" minLength={10} /><Button onClick={() => void setupKeys()} disabled={working} className="w-full">{working ? <LoaderCircle size={15} className="animate-spin" /> : <KeyRound size={15} />}Generate and register keys</Button></div>}{message && <p role="status" className="mt-3 text-xs text-moss">{message}</p>}</Card></div></>;
+  return <><PageHeading eyebrow="Account" title="Members & keys" description="Manage your identity and cryptographic keys for this workspace." /><div className="mt-7 grid gap-5 xl:grid-cols-2"><Card className="p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-paper text-[#75847a]"><Users size={18} /></div><div><h2 className="text-sm font-semibold">Your profile</h2><p className="mt-1 text-xs text-[#89938c]">Workspace identity</p></div></div><div className="mt-5 space-y-3 border-t border-line pt-4 text-sm"><div className="flex justify-between"><span className="text-[#89938c]">Name</span><span>{user.displayName}</span></div>{user.email && <div className="flex justify-between"><span className="text-[#89938c]">Email</span><span>{user.email}</span></div>}{user.walletAddress && <div className="flex justify-between gap-3"><span className="text-[#89938c]">Ethereum wallet</span><span className="truncate font-mono text-xs">{user.walletAddress}</span></div>}<div className="flex justify-between"><span className="text-[#89938c]">Role</span><span className="capitalize">{user.role}</span></div></div></Card><Card className="p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf3ed] text-moss"><KeyRound size={18} /></div><div><h2 className="text-sm font-semibold">Post-quantum identity</h2><p className="mt-1 text-xs text-[#89938c]">ML-KEM-768 + ML-DSA-65</p></div><Badge tone={user.hasKeys ? 'green' : 'amber'}>{user.hasKeys ? 'Registered' : 'Not set up'}</Badge></div><p className="mt-4 text-xs leading-5 text-[#748078]">Your private keys are generated in this browser and encrypted with your passphrase before they are saved locally. Only public keys are sent to ArcTrace.</p>{!user.hasKeys && <div className="mt-4 space-y-3"><Input type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Create a private key passphrase" minLength={10} /><Button onClick={() => void setupKeys()} disabled={working} className="w-full">{working ? <LoaderCircle size={15} className="animate-spin" /> : <KeyRound size={15} />}Generate and register keys</Button></div>}{message && <p role="status" className="mt-3 text-xs text-moss">{message}</p>}</Card></div></>;
 }
 
-function UploadDialog({ user, onClose, onCreated }: { user: SessionUser; onClose: () => void; onCreated: () => void }) {
+function UploadDialog({ user, onClose, onCreated }: { user: SessionUser; onClose: () => void; onCreated: (created: { docId: string; title: string; names: Record<string, string> }) => void }) {
   const [file, setFile] = useState<File | null>(null);
+  const [documentName, setDocumentName] = useState('');
   const [members, setMembers] = useState<{ id: string; displayName: string; role: string; hasKeys: boolean }[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [passphrase, setPassphrase] = useState('');
@@ -298,11 +332,11 @@ function UploadDialog({ user, onClose, onCreated }: { user: SessionUser; onClose
     setBusy(true); setError('');
     try {
       const { shareDocument } = await import('../lib/share');
-      await shareDocument(file, selected, passphrase, user);
-      onCreated();
+      const created = await shareDocument(file, documentName, selected, passphrase, user);
+      onCreated(created);
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not share this document'); }
     finally { setBusy(false); }
   };
   const recipients = members.filter((m) => m.id !== user.id && m.hasKeys);
-  return <div className="fixed inset-0 z-30 grid place-items-center bg-ink/35 p-4" role="dialog" aria-modal="true" aria-labelledby="upload-title"><Card className="w-full max-w-[520px] p-6"><div className="flex items-start justify-between"><div><h2 id="upload-title" className="text-lg font-semibold">Share a document</h2><p className="mt-1 text-sm text-[#748078]">The file is encrypted in this browser before upload.</p></div><button aria-label="Close" onClick={onClose} className="rounded-md p-1.5 text-[#89938c] hover:bg-paper"><X size={17} /></button></div><label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line p-4 hover:bg-paper"><input type="file" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /><div className="grid h-9 w-9 place-items-center rounded-lg bg-paper text-moss"><Upload size={17} /></div><div className="min-w-0"><div className="truncate text-sm font-medium">{file?.name ?? 'Choose a document'}</div><div className="mt-1 text-xs text-[#89938c]">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, image, or text · up to 100 MB'}</div></div></label><div className="mt-5"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7e8981]">Recipients</div><div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-line p-2">{recipients.length ? recipients.map((member) => <label key={member.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 hover:bg-paper"><input type="checkbox" checked={selected.includes(member.id)} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, member.id] : ids.filter((id) => id !== member.id))} className="accent-[#567b65]" /><span className="flex-1 text-sm">{member.displayName}</span><span className="text-xs capitalize text-[#89938c]">{member.role}</span><Badge tone="green">Key ready</Badge></label>) : <p className="px-2 py-3 text-xs leading-5 text-[#89938c]">No other workspace members have registered keys yet. Create another account and register its keys first.</p>}</div></div><label className="mt-4 block text-xs font-medium">Your private key passphrase<Input type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Unlock your signing key" className="mt-2" /></label>{error && <p role="alert" className="mt-3 text-xs text-red-700">{error}</p>}<div className="mt-6 flex justify-end gap-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={!file || selected.length === 0 || !passphrase || busy} onClick={() => void create()}>{busy ? <LoaderCircle size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}Encrypt & share</Button></div></Card></div>;
+  return <div className="fixed inset-0 z-30 grid place-items-center bg-ink/35 p-4" role="dialog" aria-modal="true" aria-labelledby="upload-title"><Card className="w-full max-w-[520px] p-6"><div className="flex items-start justify-between"><div><h2 id="upload-title" className="text-lg font-semibold">Share a document</h2><p className="mt-1 text-sm text-[#748078]">The file is encrypted in this browser before upload.</p></div><button aria-label="Close" onClick={onClose} className="rounded-md p-1.5 text-[#89938c] hover:bg-paper"><X size={17} /></button></div><label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line p-4 hover:bg-paper"><input type="file" className="sr-only" onChange={(e) => { const selectedFile = e.target.files?.[0] ?? null; setFile(selectedFile); if (selectedFile) setDocumentName(selectedFile.name); }} /><div className="grid h-9 w-9 place-items-center rounded-lg bg-paper text-moss"><Upload size={17} /></div><div className="min-w-0"><div className="truncate text-sm font-medium">{file?.name ?? 'Choose a document'}</div><div className="mt-1 text-xs text-[#89938c]">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, image, or text · up to 100 MB'}</div></div></label><label className="mt-4 block text-xs font-medium">Document name<Input value={documentName} onChange={(e) => setDocumentName(e.target.value)} maxLength={120} placeholder="Name this document" className="mt-2" /><span className="mt-1 block font-normal text-[#89938c]">Encrypted with the document and kept in this browser’s encrypted name cache.</span></label><div className="mt-5"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7e8981]">Recipients</div><div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-line p-2">{recipients.length ? recipients.map((member) => <label key={member.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 hover:bg-paper"><input type="checkbox" checked={selected.includes(member.id)} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, member.id] : ids.filter((id) => id !== member.id))} className="accent-[#567b65]" /><span className="flex-1 text-sm">{member.displayName}</span><span className="text-xs capitalize text-[#89938c]">{member.role}</span><Badge tone="green">Key ready</Badge></label>) : <p className="px-2 py-3 text-xs leading-5 text-[#89938c]">No other workspace members have registered keys yet. Create another account and register its keys first.</p>}</div></div><label className="mt-4 block text-xs font-medium">Your private key passphrase<Input type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="Unlock your signing key" className="mt-2" /></label>{error && <p role="alert" className="mt-3 text-xs text-red-700">{error}</p>}<div className="mt-6 flex justify-end gap-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={!file || !documentName.trim() || selected.length === 0 || !passphrase || busy} onClick={() => void create()}>{busy ? <LoaderCircle size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}Encrypt & share</Button></div></Card></div>;
 }
