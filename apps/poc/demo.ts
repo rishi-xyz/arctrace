@@ -63,7 +63,6 @@ import {
   psnr,
   resizeAttack,
   toJpeg,
-  type ImageDataLike,
 } from "@arctrace/watermark";
 import { ArkivAdapter, MockAdapter, type LedgerAdapter } from "@arctrace/ledger";
 

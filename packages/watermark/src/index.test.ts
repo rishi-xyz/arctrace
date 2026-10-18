@@ -152,7 +152,7 @@ describe("text watermark (zero-width, fragile)", () => {
   const text = "Operation Firewall 2026 - counter intelligence report - confidential";
   it("round trips", () => {
     const marked = embedText(text, WM, KEY);
-    expect(marked.replace(/[​‌]/g, "")).toBe(text);
+    expect(marked.replace(/[\u200b\u200c]/g, "")).toBe(text);
     const r = extractText(marked);
     expect(r.ok).toBe(true);
     expect(r.wmCode).toBe(WM);

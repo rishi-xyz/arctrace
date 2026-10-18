@@ -146,11 +146,9 @@ function decodeFromVotes(
   weights: number[],
 ): { ok: boolean; confidence: number; wmCode?: string } {
   const bits = new Uint8Array(PAYLOAD_BITS);
-  let agree = 0;
   let total = 0;
   for (let i = 0; i < PAYLOAD_BITS; i++) {
     bits[i] = votes[i]! >= 0 ? 1 : 0;
-    agree += bits[i] === 1 ? votes[i]! : -votes[i]!;
     total += weights[i]!;
   }
   const confidenceOf = (b: Uint8Array) => {

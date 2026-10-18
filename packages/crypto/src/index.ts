@@ -49,7 +49,6 @@ export interface SigKeyPair {
 }
 
 const enc = new TextEncoder();
-const dec = new TextDecoder();
 
 // ---------------------------------------------------------------------------
 // PQC
